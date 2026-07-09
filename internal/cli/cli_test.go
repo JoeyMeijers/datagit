@@ -274,7 +274,7 @@ func TestCheckCommand(t *testing.T) {
 
 	// Custom rules file drives behavior.
 	rules := `{"rules":[{"type":"unique","columns":["x"]}]}`
-	if err := os.WriteFile(filepath.Join(dir, ".rowen", "config", "rules.json"), []byte(rules), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".datagit", "config", "rules.json"), []byte(rules), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dup := filepath.Join(dir, "dup.csv")
@@ -328,6 +328,84 @@ func TestSearchAndGCCommands(t *testing.T) {
 	out, err = run(t, dir, "gc")
 	if err != nil || !strings.Contains(out, "removed 0") {
 		t.Fatalf("gc: %v %q", err, out)
+	}
+}
+
+func TestBranchAndMergeCommands(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := run(t, dir, "branch")
+	if err != nil || !strings.Contains(out, "no branches yet") {
+		t.Fatalf("branch list: %v %q", err, out)
+	}
+
+	csv := filepath.Join(dir, "d.csv")
+	if err := os.WriteFile(csv, []byte("x\n1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "add", "d.csv"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "commit", "-m", "v1"); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err = run(t, dir, "status")
+	if err != nil || !strings.Contains(out, "on branch main") {
+		t.Fatalf("status: %v %q", err, out)
+	}
+
+	if _, err := run(t, dir, "branch", "dev"); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(t, dir, "branch")
+	if err != nil || !strings.Contains(out, "* main") || !strings.Contains(out, "  dev") {
+		t.Fatalf("branch list: %v %q", err, out)
+	}
+
+	// Work on dev, then fast-forward main onto it.
+	if _, err := run(t, dir, "checkout", "dev"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(csv, []byte("x\n1\n2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "add", "d.csv"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "commit", "-m", "v2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "checkout", "main"); err != nil {
+		t.Fatal(err)
+	}
+	blob, _ := os.ReadFile(csv)
+	if string(blob) != "x\n1\n" {
+		t.Fatalf("main worktree = %q", blob)
+	}
+	out, err = run(t, dir, "merge", "dev")
+	if err != nil || !strings.Contains(out, "fast-forwarded") {
+		t.Fatalf("merge: %v %q", err, out)
+	}
+	blob, _ = os.ReadFile(csv)
+	if string(blob) != "x\n1\n2\n" {
+		t.Fatalf("after merge worktree = %q", blob)
+	}
+	out, err = run(t, dir, "merge", "dev")
+	if err != nil || !strings.Contains(out, "already up to date") {
+		t.Fatalf("re-merge: %v %q", err, out)
+	}
+
+	if _, err := run(t, dir, "branch", "-d", "dev"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "merge"); err == nil {
+		t.Fatal("merge without args should fail")
 	}
 }
 

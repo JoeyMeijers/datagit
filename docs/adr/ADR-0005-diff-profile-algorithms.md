@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`rowen diff` and `rowen profile` must handle datasets far larger than memory, in one streaming pass, with deterministic results.
+`dgit diff` and `dgit profile` must handle datasets far larger than memory, in one streaming pass, with deterministic results.
 
 ## Decision
 

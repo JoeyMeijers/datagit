@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-`rowen add` extracts schema and row count from Parquet files. Existing Go Parquet libraries (`parquet-go/parquet-go`, `xitongsys/parquet-go`) pull large dependency trees (Apache Thrift, Apache Arrow, AWS SDK, cloud storage SDKs), several served from vanity domains unreachable in the development environment. rowen only needs footer *metadata* — not data-page reading.
+`dgit add` extracts schema and row count from Parquet files. Existing Go Parquet libraries (`parquet-go/parquet-go`, `xitongsys/parquet-go`) pull large dependency trees (Apache Thrift, Apache Arrow, AWS SDK, cloud storage SDKs), several served from vanity domains unreachable in the development environment. datagit only needs footer *metadata* — not data-page reading.
 
 ## Decision
 
-Implement a minimal, decode-only Apache Thrift compact-protocol reader (~150 lines, `internal/format/thrift.go`) and parse the Parquet footer (`FileMetaData`) directly: fields `schema` (list<SchemaElement>) and `num_rows`, with unknown fields skipped generically. Physical types, ConvertedType, and LogicalType map to rowen column types; nested groups are reported as `nested`.
+Implement a minimal, decode-only Apache Thrift compact-protocol reader (~150 lines, `internal/format/thrift.go`) and parse the Parquet footer (`FileMetaData`) directly: fields `schema` (list<SchemaElement>) and `num_rows`, with unknown fields skipped generically. Physical types, ConvertedType, and LogicalType map to datagit column types; nested groups are reported as `nested`.
 
 Correctness is anchored by golden files generated with pyarrow (committed under `internal/format/testdata/`, regenerable via `gen_fixtures.py`) plus adversarial tests (truncated footers, bogus lengths, oversized list headers).
 

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The project brief names Cobra as the CLI framework. Cobra (all versions) transitively requires modules served from vanity import domains (`gopkg.in`, `go.yaml.in`) that were unreachable in the initial development environment, which can only fetch modules hosted directly on github.com. rowen's CLI needs are currently modest: eight subcommands, few flags.
+The project brief names Cobra as the CLI framework. Cobra (all versions) transitively requires modules served from vanity import domains (`gopkg.in`, `go.yaml.in`) that were unreachable in the initial development environment, which can only fetch modules hosted directly on github.com. datagit's CLI needs are currently modest: eight subcommands, few flags.
 
 ## Decision
 

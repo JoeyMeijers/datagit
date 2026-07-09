@@ -10,8 +10,8 @@ import (
 	"hash/fnv"
 	"io"
 
-	"github.com/joeymeij/rowen/internal/model"
-	"github.com/joeymeij/rowen/internal/tabular"
+	"github.com/joeymeij/datagit/internal/model"
+	"github.com/joeymeij/datagit/internal/tabular"
 )
 
 // TypeChange records a column whose detected type changed.

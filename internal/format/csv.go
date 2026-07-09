@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/datagit/internal/model"
 )
 
 // typeSampleRows caps how many rows are examined for type inference.

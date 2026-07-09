@@ -1,4 +1,4 @@
-// Package cli implements rowen's command-line interface using only the
+// Package cli implements dgit's command-line interface using only the
 // standard library. See ADR-0001 for why Cobra is not (yet) used; the
 // command table below keeps a later migration mechanical.
 package cli
@@ -10,7 +10,7 @@ import (
 	"sort"
 )
 
-// Command is one rowen subcommand.
+// Command is one dgit subcommand.
 type Command struct {
 	Name    string
 	Summary string
@@ -54,8 +54,8 @@ func (a *App) Run(args []string) error {
 }
 
 func (a *App) printUsage() {
-	fmt.Fprintln(a.out, "rowen — Git-like version control for datasets")
-	fmt.Fprintln(a.out, "\nUsage: rowen <command> [arguments]")
+	fmt.Fprintln(a.out, "dgit — Git-like version control for datasets")
+	fmt.Fprintln(a.out, "\nUsage: dgit <command> [arguments]")
 	fmt.Fprintln(a.out, "\nCommands:")
 	names := make([]string, 0, len(a.commands))
 	for n := range a.commands {

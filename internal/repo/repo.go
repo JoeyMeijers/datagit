@@ -1,5 +1,5 @@
-// Package repo orchestrates rowen operations against a repository:
-// the .rowen directory holding objects, commits, refs, config, and the
+// Package repo orchestrates datagit operations against a repository:
+// the .datagit directory holding objects, commits, refs, config, and the
 // SQLite index. It composes the storage, index, and format packages and
 // exposes the operations the CLI commands call.
 package repo
@@ -17,24 +17,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joeymeij/rowen/internal/format"
-	"github.com/joeymeij/rowen/internal/index"
-	"github.com/joeymeij/rowen/internal/model"
-	"github.com/joeymeij/rowen/internal/storage"
+	"github.com/joeymeij/datagit/internal/format"
+	"github.com/joeymeij/datagit/internal/index"
+	"github.com/joeymeij/datagit/internal/model"
+	"github.com/joeymeij/datagit/internal/storage"
 )
 
 // DirName is the repository metadata directory, analogous to .git.
-const DirName = ".rowen"
+const DirName = ".datagit"
 
-// ErrNotARepo is returned when no .rowen directory is found.
-var ErrNotARepo = errors.New("not a rowen repository (run `rowen init`)")
+// ErrNotARepo is returned when no .datagit directory is found.
+var ErrNotARepo = errors.New("not a datagit repository (run `dgit init`)")
 
 // ErrNothingStaged is returned by Commit when the staging area is empty.
-var ErrNothingStaged = errors.New("nothing staged; use `rowen add <file>` first")
+var ErrNothingStaged = errors.New("nothing staged; use `dgit add <file>` first")
 
-// Repo is an open rowen repository.
+// Repo is an open datagit repository.
 type Repo struct {
-	Root  string // working-tree root (parent of .rowen)
+	Root  string // working-tree root (parent of .datagit)
 	store *storage.Store
 	idx   *index.DB
 }
@@ -52,7 +52,7 @@ func Init(root string) error {
 	if _, err := os.Stat(meta); err == nil {
 		return fmt.Errorf("repository already exists at %s", meta)
 	}
-	for _, d := range []string{"objects", "commits", "metadata", "refs", "config"} {
+	for _, d := range []string{"objects", "commits", "metadata", "refs", "refs/heads", "config"} {
 		if err := os.MkdirAll(filepath.Join(meta, d), 0o755); err != nil {
 			return fmt.Errorf("creating %s: %w", d, err)
 		}
@@ -65,6 +65,12 @@ func Init(root string) error {
 	if err := os.WriteFile(filepath.Join(meta, "config", "config.json"), blob, 0o644); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
+	// HEAD starts as a symbolic ref to an unborn default branch, which
+	// materializes on the first commit (mirrors git's behavior).
+	if err := os.WriteFile(filepath.Join(meta, "refs", "HEAD"),
+		[]byte(headRefPrefix+DefaultBranch+"\n"), 0o644); err != nil {
+		return fmt.Errorf("writing HEAD: %w", err)
+	}
 	// Touch the index so the layout is complete from the start.
 	idx, err := index.Open(filepath.Join(meta, "index.db"))
 	if err != nil {
@@ -74,7 +80,7 @@ func Init(root string) error {
 }
 
 func defaultAuthor() string {
-	if u := os.Getenv("ROWEN_AUTHOR"); u != "" {
+	if u := os.Getenv("DATAGIT_AUTHOR"); u != "" {
 		return u
 	}
 	if u := os.Getenv("USER"); u != "" {
@@ -275,8 +281,30 @@ func (r *Repo) author() string {
 	return defaultAuthor()
 }
 
-// Head returns the current HEAD commit ID, or "" for an empty repository.
+// Head returns the current HEAD commit ID, or "" for an empty
+// repository or an unborn branch. HEAD may be symbolic (on a branch)
+// or a raw commit ID (detached).
 func (r *Repo) Head() (string, error) {
+	raw, err := r.readHeadFile()
+	if err != nil {
+		return "", err
+	}
+	name, symbolic := strings.CutPrefix(raw, headRefPrefix)
+	if !symbolic {
+		return raw, nil
+	}
+	blob, err := os.ReadFile(r.branchPath(name))
+	if os.IsNotExist(err) {
+		return "", nil // unborn branch
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading branch %s: %w", name, err)
+	}
+	return strings.TrimSpace(string(blob)), nil
+}
+
+// readHeadFile returns the raw HEAD content ("" if absent).
+func (r *Repo) readHeadFile() (string, error) {
 	blob, err := os.ReadFile(filepath.Join(metaDir(r.Root), "refs", "HEAD"))
 	if os.IsNotExist(err) {
 		return "", nil
@@ -287,8 +315,21 @@ func (r *Repo) Head() (string, error) {
 	return strings.TrimSpace(string(blob)), nil
 }
 
+// setHead moves the current position to id: on a branch it advances the
+// branch pointer; detached, it rewrites HEAD itself.
 func (r *Repo) setHead(id string) error {
-	return os.WriteFile(filepath.Join(metaDir(r.Root), "refs", "HEAD"), []byte(id+"\n"), 0o644)
+	raw, err := r.readHeadFile()
+	if err != nil {
+		return err
+	}
+	if name, symbolic := strings.CutPrefix(raw, headRefPrefix); symbolic {
+		return os.WriteFile(r.branchPath(name), []byte(id+"\n"), 0o644)
+	}
+	return r.writeHeadFile(id)
+}
+
+func (r *Repo) writeHeadFile(content string) error {
+	return os.WriteFile(filepath.Join(metaDir(r.Root), "refs", "HEAD"), []byte(content+"\n"), 0o644)
 }
 
 // LoadCommit reads a commit by full ID or unique prefix (min 4 chars).
@@ -308,9 +349,14 @@ func (r *Repo) LoadCommit(ref string) (model.Commit, error) {
 	return c, nil
 }
 
-// resolve expands a commit ID prefix to a full ID.
+// resolve expands a commit reference — a branch name, full ID, or
+// unique ID prefix — to a full commit ID. Branch names take precedence
+// over ID prefixes.
 func (r *Repo) resolve(ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
+	if blob, err := os.ReadFile(r.branchPath(ref)); err == nil {
+		return strings.TrimSpace(string(blob)), nil
+	}
 	if len(ref) == 64 {
 		return ref, nil
 	}
@@ -419,7 +465,9 @@ func hashFile(path string) (string, error) {
 }
 
 // Checkout restores every file of the given commit into the working
-// tree. Unless force is set, it refuses to run while changes are staged.
+// tree. If ref is a branch name, HEAD attaches to that branch;
+// otherwise HEAD detaches at the commit. Unless force is set, it
+// refuses to run while changes are staged.
 func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
 	if !force {
 		staged, err := r.idx.Staged()
@@ -439,7 +487,12 @@ func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
 			return model.Commit{}, fmt.Errorf("restoring %s: %w", f.Path, err)
 		}
 	}
-	if err := r.setHead(c.ID); err != nil {
+	if r.isBranch(ref) {
+		err = r.writeHeadFile(headRefPrefix + strings.TrimSpace(ref)) // attach
+	} else {
+		err = r.writeHeadFile(c.ID) // detach
+	}
+	if err != nil {
 		return model.Commit{}, err
 	}
 	return c, nil
@@ -452,7 +505,7 @@ func (r *Repo) restoreFile(f model.FileEntry) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".rowen-restore-*")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".datagit-restore-*")
 	if err != nil {
 		return err
 	}

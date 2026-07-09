@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/joeymeij/rowen/internal/tabular"
+	"github.com/joeymeij/datagit/internal/tabular"
 )
 
 const (

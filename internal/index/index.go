@@ -1,6 +1,6 @@
-// Package index persists rowen's queryable state in an embedded SQLite
-// database (.rowen/index.db): the staging area and a searchable cache
-// of commits and their files. Commit JSON files under .rowen/commits/
+// Package index persists datagit's queryable state in an embedded SQLite
+// database (.datagit/index.db): the staging area and a searchable cache
+// of commits and their files. Commit JSON files under .datagit/commits/
 // remain the durable source of truth; the index can be rebuilt from them.
 package index
 
@@ -12,7 +12,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3" // registers the "sqlite3" driver
 
-	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/datagit/internal/model"
 )
 
 // DB wraps the SQLite index database.

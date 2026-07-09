@@ -1,8 +1,8 @@
-// Package storage implements rowen's content-addressable chunk store.
+// Package storage implements datagit's content-addressable chunk store.
 //
 // Files are split into fixed-size chunks, each chunk is hashed with
 // SHA-256, compressed with zstandard, and written to
-// .rowen/objects/<hh>/<rest-of-hash>. Identical chunks are stored once
+// .datagit/objects/<hh>/<rest-of-hash>. Identical chunks are stored once
 // (deduplication). All reads and writes stream; no file is ever fully
 // buffered in memory.
 package storage
@@ -19,7 +19,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 
-	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/datagit/internal/model"
 )
 
 // DefaultChunkSize is the fixed chunk size (4 MiB). Content-defined
@@ -34,7 +34,7 @@ var ErrCorruptObject = errors.New("object corrupt: hash mismatch")
 
 // Store is a content-addressable chunk store rooted at a directory.
 type Store struct {
-	root      string // e.g. .rowen/objects
+	root      string // e.g. .datagit/objects
 	chunkSize int
 }
 

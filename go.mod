@@ -1,4 +1,4 @@
-module github.com/joeymeij/rowen
+module github.com/joeymeij/datagit
 
 go 1.24
 

@@ -1,17 +1,17 @@
-# rowen — build, test, and development tasks.
+# datagit — build, test, and development tasks.
 #
 # Common targets:
-#   make build      compile ./bin/rowen
+#   make build      compile ./bin/dgit
 #   make test       run all tests
 #   make check      fmt + vet + test (what CI should run)
 #   make install    install into $(go env GOPATH)/bin
 #   make cover      test with coverage report
 #   make clean      remove build artifacts
 
-BINARY  := rowen
+BINARY  := dgit
 BIN_DIR := bin
 PKG     := ./...
-MAIN    := ./cmd/rowen
+MAIN    := ./cmd/dgit
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"

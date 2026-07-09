@@ -46,7 +46,7 @@ func Open(path string) (Reader, error) {
 	return r, nil
 }
 
-// FormatOf maps a file path to a rowen format name.
+// FormatOf maps a file path to a datagit format name.
 func FormatOf(path string) string {
 	switch strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), ".") {
 	case "csv":

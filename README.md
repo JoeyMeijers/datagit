@@ -1,4 +1,4 @@
-# rowen
+# datagit
 
 Git-like version control for datasets. A single Go binary that brings commits, rollback, integrity verification, and automatic schema detection to CSV, TSV, and Parquet files.
 
@@ -9,7 +9,7 @@ Early MVP. Core versioning works end to end; profiling, diff, lineage, cloud sto
 ## Install
 
 ```bash
-make build          # compiles ./bin/rowen
+make build          # compiles ./bin/dgit
 make install        # installs into $(go env GOPATH)/bin
 ```
 
@@ -18,31 +18,35 @@ Requires Go 1.24+ and a C compiler (for the embedded SQLite index). Run `make he
 ## Usage
 
 ```bash
-rowen init                      # create a repository in the current directory
-rowen add population.csv        # stage a file (chunks, hashes, detects schema)
-rowen commit -m "Initial import"
-rowen status                    # staged / modified / missing files
-rowen log                       # commit history
-rowen schema population.csv     # detected column types at HEAD
-rowen diff                      # uncommitted changes: working tree vs HEAD
-rowen diff <old> [<new>]        # compare commits (new defaults to HEAD)
-rowen diff --rows 20 <old>      # also print the added/removed rows themselves
-rowen profile population.csv    # column statistics; --hist adds histograms
-rowen check population.csv     # validate against quality rules (exit 1 on violations)
-rowen search income             # find datasets by path or column name
-rowen checkout <commit>         # restore all files from a commit
-rowen verify                    # integrity-check every stored object
-rowen gc [--dry-run]            # delete chunks no commit references
+dgit init                      # create a repository in the current directory
+dgit add population.csv        # stage a file (chunks, hashes, detects schema)
+dgit commit -m "Initial import"
+dgit status                    # staged / modified / missing files
+dgit log                       # commit history
+dgit schema population.csv     # detected column types at HEAD
+dgit diff                      # uncommitted changes: working tree vs HEAD
+dgit diff <old> [<new>]        # compare commits (new defaults to HEAD)
+dgit diff --rows 20 <old>      # also print the added/removed rows themselves
+dgit profile population.csv    # column statistics; --hist adds histograms
+dgit check population.csv     # validate against quality rules (exit 1 on violations)
+dgit search income             # find datasets by path or column name
+dgit branch [name]             # list or create branches (-d deletes)
+dgit checkout <branch|commit>  # switch branches, or detach at a commit
+dgit merge <branch>            # fast-forward the current branch
+dgit verify                    # integrity-check every stored object
+dgit gc [--dry-run]            # delete chunks no commit references
 ```
 
-Commits can be referenced by any unique ID prefix of at least 4 characters.
+Commits can be referenced by branch name or any unique ID prefix of at least 4 characters.
+
+Repositories start on a `main` branch. `checkout <branch>` switches branches; `checkout <commit>` detaches HEAD at that commit. `merge` is currently fast-forward only — diverged branches are rejected until three-way dataset merge lands (ADR-0007).
 
 ## How it works
 
-`rowen init` creates a `.rowen/` directory:
+`dgit init` creates a `.datagit/` directory:
 
 ```
-.rowen/
+.datagit/
     objects/     content-addressable chunks (SHA-256, zstd-compressed)
     commits/     one JSON document per commit (source of truth)
     metadata/    reserved for the metadata catalog
@@ -67,7 +71,7 @@ Commits can be referenced by any unique ID prefix of at least 4 characters.
 
 ## Configuration
 
-`.rowen/config/config.json`:
+`.datagit/config/config.json`:
 
 ```json
 { "author": "your name" }
@@ -75,7 +79,7 @@ Commits can be referenced by any unique ID prefix of at least 4 characters.
 
 Falls back to `$DIT_AUTHOR`, then `$USER`.
 
-`.rowen/config/rules.json` (optional) overrides the default quality rules:
+`.datagit/config/rules.json` (optional) overrides the default quality rules:
 
 ```json
 {

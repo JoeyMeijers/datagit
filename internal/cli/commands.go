@@ -5,14 +5,14 @@ import (
 	"io"
 	"os"
 
-	"github.com/joeymeij/rowen/internal/repo"
+	"github.com/joeymeij/datagit/internal/repo"
 )
 
 func builtins() []*Command {
 	return []*Command{
 		cmdInit(), cmdAdd(), cmdCommit(), cmdLog(), cmdStatus(),
 		cmdCheckout(), cmdSchema(), cmdVerify(), cmdDiff(), cmdProfile(),
-		cmdCheck(), cmdSearch(), cmdGC(),
+		cmdCheck(), cmdSearch(), cmdGC(), cmdBranch(), cmdMerge(),
 	}
 }
 
@@ -28,8 +28,8 @@ func openRepo() (*repo.Repo, error) {
 func cmdInit() *Command {
 	return &Command{
 		Name:    "init",
-		Summary: "Create an empty rowen repository in the current directory",
-		Usage:   "rowen init",
+		Summary: "Create an empty dgit repository in the current directory",
+		Usage:   "dgit init",
 		Run: func(out io.Writer, args []string) error {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -38,7 +38,7 @@ func cmdInit() *Command {
 			if err := repo.Init(wd); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "Initialized empty rowen repository in %s/%s\n", wd, repo.DirName)
+			fmt.Fprintf(out, "Initialized empty dgit repository in %s/%s\n", wd, repo.DirName)
 			return nil
 		},
 	}
@@ -48,10 +48,10 @@ func cmdAdd() *Command {
 	return &Command{
 		Name:    "add",
 		Summary: "Stage dataset files for the next commit",
-		Usage:   "rowen add <file>...",
+		Usage:   "dgit add <file>...",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("usage: rowen add <file>...")
+				return fmt.Errorf("usage: dgit add <file>...")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -78,7 +78,7 @@ func cmdCommit() *Command {
 	return &Command{
 		Name:    "commit",
 		Summary: "Record staged files as a new commit",
-		Usage:   "rowen commit -m <message>",
+		Usage:   "dgit commit -m <message>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("commit", out)
 			msg := fs.String("m", "", "commit message (required)")
@@ -86,7 +86,7 @@ func cmdCommit() *Command {
 				return err
 			}
 			if *msg == "" {
-				return fmt.Errorf("usage: rowen commit -m <message>")
+				return fmt.Errorf("usage: dgit commit -m <message>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -107,7 +107,7 @@ func cmdLog() *Command {
 	return &Command{
 		Name:    "log",
 		Summary: "Show commit history, newest first",
-		Usage:   "rowen log",
+		Usage:   "dgit log",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {
@@ -137,13 +137,18 @@ func cmdStatus() *Command {
 	return &Command{
 		Name:    "status",
 		Summary: "Show staged and modified files",
-		Usage:   "rowen status",
+		Usage:   "dgit status",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {
 				return err
 			}
 			defer r.Close()
+			if branch, err := r.CurrentBranch(); err == nil && branch != "" {
+				fmt.Fprintf(out, "on branch %s\n", branch)
+			} else if err == nil {
+				fmt.Fprintln(out, "HEAD detached")
+			}
 			states, err := r.Status()
 			if err != nil {
 				return err
@@ -164,7 +169,7 @@ func cmdCheckout() *Command {
 	return &Command{
 		Name:    "checkout",
 		Summary: "Restore all files from a commit into the working tree",
-		Usage:   "rowen checkout [--force] <commit>",
+		Usage:   "dgit checkout [--force] <commit>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("checkout", out)
 			force := fs.Bool("force", false, "discard staged changes")
@@ -172,7 +177,7 @@ func cmdCheckout() *Command {
 				return err
 			}
 			if fs.NArg() != 1 {
-				return fmt.Errorf("usage: rowen checkout [--force] <commit>")
+				return fmt.Errorf("usage: dgit checkout [--force] <commit>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -193,10 +198,10 @@ func cmdSchema() *Command {
 	return &Command{
 		Name:    "schema",
 		Summary: "Show the detected schema of a file at HEAD",
-		Usage:   "rowen schema <file>",
+		Usage:   "dgit schema <file>",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) != 1 {
-				return fmt.Errorf("usage: rowen schema <file>")
+				return fmt.Errorf("usage: dgit schema <file>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -237,7 +242,7 @@ func cmdVerify() *Command {
 	return &Command{
 		Name:    "verify",
 		Summary: "Check integrity of every stored object",
-		Usage:   "rowen verify",
+		Usage:   "dgit verify",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {

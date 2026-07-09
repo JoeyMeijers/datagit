@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/datagit/internal/model"
 )
 
 func seedCommit(t *testing.T, d *DB, id string, at time.Time, files ...model.FileEntry) {

@@ -147,7 +147,7 @@ func TestLoadRulesDefaultAndCustom(t *testing.T) {
 	}
 
 	cfg := `{"rules":[{"type":"unique","columns":["id"]}]}`
-	if err := os.WriteFile(r.Root+"/.rowen/config/rules.json", []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(r.Root+"/.datagit/config/rules.json", []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	rs, err = r.LoadRules()
@@ -156,7 +156,7 @@ func TestLoadRulesDefaultAndCustom(t *testing.T) {
 	}
 
 	// Invalid JSON fails loudly.
-	if err := os.WriteFile(r.Root+"/.rowen/config/rules.json", []byte("{"), 0o644); err != nil {
+	if err := os.WriteFile(r.Root+"/.datagit/config/rules.json", []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.LoadRules(); err == nil {

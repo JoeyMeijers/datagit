@@ -6,16 +6,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/joeymeij/rowen/internal/diff"
-	"github.com/joeymeij/rowen/internal/profile"
-	"github.com/joeymeij/rowen/internal/tabular"
+	"github.com/joeymeij/datagit/internal/diff"
+	"github.com/joeymeij/datagit/internal/profile"
+	"github.com/joeymeij/datagit/internal/tabular"
 )
 
 func cmdDiff() *Command {
 	return &Command{
 		Name:    "diff",
 		Summary: "Compare working tree or commits (files, schemas, rows)",
-		Usage:   "rowen diff [--rows N] [<old-commit> [<new-commit>]]",
+		Usage:   "dgit diff [--rows N] [<old-commit> [<new-commit>]]",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("diff", out)
 			rows := fs.Int("rows", 0, "show up to N added/removed rows per file")
@@ -23,7 +23,7 @@ func cmdDiff() *Command {
 				return err
 			}
 			if fs.NArg() > 2 {
-				return fmt.Errorf("usage: rowen diff [--rows N] [<old-commit> [<new-commit>]]")
+				return fmt.Errorf("usage: dgit diff [--rows N] [<old-commit> [<new-commit>]]")
 			}
 			if *rows < 0 {
 				return fmt.Errorf("--rows must be >= 0")
@@ -107,7 +107,7 @@ func cmdProfile() *Command {
 	return &Command{
 		Name:    "profile",
 		Summary: "Compute column statistics for a dataset file",
-		Usage:   "rowen profile [--hist] <file>",
+		Usage:   "dgit profile [--hist] <file>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("profile", out)
 			hist := fs.Bool("hist", false, "print histograms for numeric columns")
@@ -115,7 +115,7 @@ func cmdProfile() *Command {
 				return err
 			}
 			if fs.NArg() != 1 {
-				return fmt.Errorf("usage: rowen profile [--hist] <file>")
+				return fmt.Errorf("usage: dgit profile [--hist] <file>")
 			}
 			path := fs.Arg(0)
 			r, err := tabular.Open(path)
