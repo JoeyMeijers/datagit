@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 // commitOf builds a commit whose file contents are served from contents

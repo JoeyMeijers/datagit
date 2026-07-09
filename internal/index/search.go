@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 // SearchHit is one dataset matching a search term, at its most recent

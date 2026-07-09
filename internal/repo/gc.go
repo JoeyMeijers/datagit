@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 // GCResult summarizes a garbage-collection run.

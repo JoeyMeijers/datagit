@@ -93,7 +93,7 @@ func TestAddOutsideRepoRejected(t *testing.T) {
 func TestAddInsideMetaDirRejected(t *testing.T) {
 	r := newRepo(t)
 	if _, err := r.Add(filepath.Join(r.Root, DirName, "config", "config.json")); err == nil {
-		t.Fatal("adding a file inside .dit should fail")
+		t.Fatal("adding a file inside .rowen should fail")
 	}
 }
 

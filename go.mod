@@ -1,4 +1,4 @@
-module github.com/joeymeij/dit
+module github.com/joeymeij/rowen
 
 go 1.24
 

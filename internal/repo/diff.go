@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/joeymeij/dit/internal/diff"
-	"github.com/joeymeij/dit/internal/format"
-	"github.com/joeymeij/dit/internal/model"
-	"github.com/joeymeij/dit/internal/tabular"
+	"github.com/joeymeij/rowen/internal/diff"
+	"github.com/joeymeij/rowen/internal/format"
+	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/rowen/internal/tabular"
 )
 
 // Diff compares two commits (by ID or prefix) and returns per-file

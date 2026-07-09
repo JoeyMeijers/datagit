@@ -1,5 +1,5 @@
 // Package format detects dataset formats and extracts lightweight
-// metadata (schema, row count, column count) at `dit add` time.
+// metadata (schema, row count, column count) at `rowen add` time.
 //
 // Detectors are registered in a package-level registry so new formats
 // (Parquet, Arrow, JSON Lines, ...) can be added — or provided by
@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 // Info is the metadata a detector extracts from a dataset file.

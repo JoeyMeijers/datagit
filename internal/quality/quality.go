@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joeymeij/dit/internal/tabular"
+	"github.com/joeymeij/rowen/internal/tabular"
 )
 
 // Rule types. A RuleSet is a list of rules; each rule yields zero or

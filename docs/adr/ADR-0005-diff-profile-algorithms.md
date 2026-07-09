@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`dit diff` and `dit profile` must handle datasets far larger than memory, in one streaming pass, with deterministic results.
+`rowen diff` and `rowen profile` must handle datasets far larger than memory, in one streaming pass, with deterministic results.
 
 ## Decision
 

@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/joeymeij/dit/internal/quality"
-	"github.com/joeymeij/dit/internal/tabular"
+	"github.com/joeymeij/rowen/internal/quality"
+	"github.com/joeymeij/rowen/internal/tabular"
 )
 
 func cmdCheck() *Command {
 	return &Command{
 		Name:    "check",
 		Summary: "Validate dataset files against quality rules",
-		Usage:   "dit check <file>...",
+		Usage:   "rowen check <file>...",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("usage: dit check <file>...")
+				return fmt.Errorf("usage: rowen check <file>...")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -65,10 +65,10 @@ func cmdSearch() *Command {
 	return &Command{
 		Name:    "search",
 		Summary: "Find datasets by path or column name",
-		Usage:   "dit search <term>",
+		Usage:   "rowen search <term>",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) != 1 {
-				return fmt.Errorf("usage: dit search <term>")
+				return fmt.Errorf("usage: rowen search <term>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -99,7 +99,7 @@ func cmdGC() *Command {
 	return &Command{
 		Name:    "gc",
 		Summary: "Delete objects not referenced by any commit",
-		Usage:   "dit gc [--dry-run]",
+		Usage:   "rowen gc [--dry-run]",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("gc", out)
 			dry := fs.Bool("dry-run", false, "report without deleting")

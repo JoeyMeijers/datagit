@@ -6,15 +6,15 @@ Accepted
 
 ## Context
 
-dit must version files from MBs to TBs with streaming I/O, deduplication, and integrity verification, using only local disk (no external database or service).
+rowen must version files from MBs to TBs with streaming I/O, deduplication, and integrity verification, using only local disk (no external database or service).
 
 ## Decision
 
 - Files are split into fixed-size 4 MiB chunks, streamed — never fully buffered.
-- Chunk identity = SHA-256 of the uncompressed chunk. Objects are stored zstd-compressed at `.dit/objects/<hh>/<rest>`, sharded by the first two hex chars.
+- Chunk identity = SHA-256 of the uncompressed chunk. Objects are stored zstd-compressed at `.rowen/objects/<hh>/<rest>`, sharded by the first two hex chars.
 - Writes go to a temp file then `rename`, so readers never observe partial objects; existing objects are never rewritten (dedup by existence check).
 - A whole-file SHA-256 is recorded per file for fast status comparison.
-- Commits are immutable JSON documents in `.dit/commits/`; commit ID = SHA-256 of the canonical commit JSON. Commit JSON is the durable source of truth; SQLite (`index.db`, see ADR-0004) is a rebuildable index plus staging area.
+- Commits are immutable JSON documents in `.rowen/commits/`; commit ID = SHA-256 of the canonical commit JSON. Commit JSON is the durable source of truth; SQLite (`index.db`, see ADR-0004) is a rebuildable index plus staging area.
 
 Dependencies: `github.com/klauspost/compress` (zstd) — pure Go, widely adopted, no transitive dependencies.
 
@@ -23,7 +23,7 @@ Dependencies: `github.com/klauspost/compress` (zstd) — pure Go, widely adopted
 ### Positive
 
 - Identical chunks across versions/files are stored once; unchanged multi-GB files cost nothing to re-add.
-- Every read path verifies hashes; `dit verify` re-hashes the whole store.
+- Every read path verifies hashes; `rowen verify` re-hashes the whole store.
 - Constant memory usage regardless of file size.
 
 ### Negative

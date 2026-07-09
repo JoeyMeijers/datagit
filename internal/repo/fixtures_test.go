@@ -3,7 +3,7 @@ package repo
 import (
 	"time"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 // modelCommitFixture returns a fixed commit for deterministic ID tests.

@@ -11,7 +11,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/joeymeij/dit/internal/model"
+	"github.com/joeymeij/rowen/internal/model"
 )
 
 const parquetMagic = "PAR1"
@@ -223,7 +223,7 @@ const (
 	pqFixedLenByteArray = 7
 )
 
-// ConvertedType values we map to richer dit types.
+// ConvertedType values we map to richer rowen types.
 const (
 	ctUTF8            = 0
 	ctDate            = 6
@@ -238,7 +238,7 @@ const (
 )
 
 // schemaFromElements converts the flattened depth-first SchemaElement
-// list into dit's column schema. The first element is the schema
+// list into rowen's column schema. The first element is the schema
 // root; its direct children become the columns. Nested groups are
 // reported as type "nested".
 func schemaFromElements(elements []schemaElement) *model.Schema {
@@ -270,7 +270,7 @@ func subtreeSize(elements []schemaElement, i int) int {
 	return n
 }
 
-// columnType maps a parquet element to a dit column type.
+// columnType maps a parquet element to a rowen column type.
 func columnType(el schemaElement) string {
 	if el.numChildren > 0 {
 		return "nested"

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/joeymeij/dit/internal/quality"
+	"github.com/joeymeij/rowen/internal/quality"
 )
 
 // rulesFile is the optional per-repository validation configuration.

@@ -1,5 +1,5 @@
-// Package repo orchestrates dit operations against a repository:
-// the .dit directory holding objects, commits, refs, config, and the
+// Package repo orchestrates rowen operations against a repository:
+// the .rowen directory holding objects, commits, refs, config, and the
 // SQLite index. It composes the storage, index, and format packages and
 // exposes the operations the CLI commands call.
 package repo
@@ -17,24 +17,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joeymeij/dit/internal/format"
-	"github.com/joeymeij/dit/internal/index"
-	"github.com/joeymeij/dit/internal/model"
-	"github.com/joeymeij/dit/internal/storage"
+	"github.com/joeymeij/rowen/internal/format"
+	"github.com/joeymeij/rowen/internal/index"
+	"github.com/joeymeij/rowen/internal/model"
+	"github.com/joeymeij/rowen/internal/storage"
 )
 
 // DirName is the repository metadata directory, analogous to .git.
-const DirName = ".dit"
+const DirName = ".rowen"
 
-// ErrNotARepo is returned when no .dit directory is found.
-var ErrNotARepo = errors.New("not a dit repository (run `dit init`)")
+// ErrNotARepo is returned when no .rowen directory is found.
+var ErrNotARepo = errors.New("not a rowen repository (run `rowen init`)")
 
 // ErrNothingStaged is returned by Commit when the staging area is empty.
-var ErrNothingStaged = errors.New("nothing staged; use `dit add <file>` first")
+var ErrNothingStaged = errors.New("nothing staged; use `rowen add <file>` first")
 
-// Repo is an open dit repository.
+// Repo is an open rowen repository.
 type Repo struct {
-	Root  string // working-tree root (parent of .dit)
+	Root  string // working-tree root (parent of .rowen)
 	store *storage.Store
 	idx   *index.DB
 }
@@ -74,7 +74,7 @@ func Init(root string) error {
 }
 
 func defaultAuthor() string {
-	if u := os.Getenv("DIT_AUTHOR"); u != "" {
+	if u := os.Getenv("ROWEN_AUTHOR"); u != "" {
 		return u
 	}
 	if u := os.Getenv("USER"); u != "" {
@@ -452,7 +452,7 @@ func (r *Repo) restoreFile(f model.FileEntry) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".dit-restore-*")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".rowen-restore-*")
 	if err != nil {
 		return err
 	}

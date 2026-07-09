@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The spec calls for an embedded SQLite index (`.dit/index.db`) for the staging area and searchable commit/file metadata, with no external database. Two mainstream Go drivers exist: `mattn/go-sqlite3` (CGO, canonical SQLite) and `modernc.org/sqlite` (pure Go transpile, served from gitlab.com — unreachable in the initial development environment).
+The spec calls for an embedded SQLite index (`.rowen/index.db`) for the staging area and searchable commit/file metadata, with no external database. Two mainstream Go drivers exist: `mattn/go-sqlite3` (CGO, canonical SQLite) and `modernc.org/sqlite` (pure Go transpile, served from gitlab.com — unreachable in the initial development environment).
 
 ## Decision
 

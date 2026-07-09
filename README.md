@@ -1,4 +1,4 @@
-# dit
+# rowen
 
 Git-like version control for datasets. A single Go binary that brings commits, rollback, integrity verification, and automatic schema detection to CSV, TSV, and Parquet files.
 
@@ -9,7 +9,7 @@ Early MVP. Core versioning works end to end; profiling, diff, lineage, cloud sto
 ## Install
 
 ```bash
-make build          # compiles ./bin/dit
+make build          # compiles ./bin/rowen
 make install        # installs into $(go env GOPATH)/bin
 ```
 
@@ -18,31 +18,31 @@ Requires Go 1.24+ and a C compiler (for the embedded SQLite index). Run `make he
 ## Usage
 
 ```bash
-dit init                      # create a repository in the current directory
-dit add population.csv        # stage a file (chunks, hashes, detects schema)
-dit commit -m "Initial import"
-dit status                    # staged / modified / missing files
-dit log                       # commit history
-dit schema population.csv     # detected column types at HEAD
-dit diff                      # uncommitted changes: working tree vs HEAD
-dit diff <old> [<new>]        # compare commits (new defaults to HEAD)
-dit diff --rows 20 <old>      # also print the added/removed rows themselves
-dit profile population.csv    # column statistics; --hist adds histograms
-dit check population.csv     # validate against quality rules (exit 1 on violations)
-dit search income             # find datasets by path or column name
-dit checkout <commit>         # restore all files from a commit
-dit verify                    # integrity-check every stored object
-dit gc [--dry-run]            # delete chunks no commit references
+rowen init                      # create a repository in the current directory
+rowen add population.csv        # stage a file (chunks, hashes, detects schema)
+rowen commit -m "Initial import"
+rowen status                    # staged / modified / missing files
+rowen log                       # commit history
+rowen schema population.csv     # detected column types at HEAD
+rowen diff                      # uncommitted changes: working tree vs HEAD
+rowen diff <old> [<new>]        # compare commits (new defaults to HEAD)
+rowen diff --rows 20 <old>      # also print the added/removed rows themselves
+rowen profile population.csv    # column statistics; --hist adds histograms
+rowen check population.csv     # validate against quality rules (exit 1 on violations)
+rowen search income             # find datasets by path or column name
+rowen checkout <commit>         # restore all files from a commit
+rowen verify                    # integrity-check every stored object
+rowen gc [--dry-run]            # delete chunks no commit references
 ```
 
 Commits can be referenced by any unique ID prefix of at least 4 characters.
 
 ## How it works
 
-`dit init` creates a `.dit/` directory:
+`rowen init` creates a `.rowen/` directory:
 
 ```
-.dit/
+.rowen/
     objects/     content-addressable chunks (SHA-256, zstd-compressed)
     commits/     one JSON document per commit (source of truth)
     metadata/    reserved for the metadata catalog
@@ -67,7 +67,7 @@ Commits can be referenced by any unique ID prefix of at least 4 characters.
 
 ## Configuration
 
-`.dit/config/config.json`:
+`.rowen/config/config.json`:
 
 ```json
 { "author": "your name" }
@@ -75,7 +75,7 @@ Commits can be referenced by any unique ID prefix of at least 4 characters.
 
 Falls back to `$DIT_AUTHOR`, then `$USER`.
 
-`.dit/config/rules.json` (optional) overrides the default quality rules:
+`.rowen/config/rules.json` (optional) overrides the default quality rules:
 
 ```json
 {

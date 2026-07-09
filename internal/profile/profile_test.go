@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joeymeij/dit/internal/tabular"
+	"github.com/joeymeij/rowen/internal/tabular"
 )
 
 // sliceReader is an in-memory tabular.Reader for tests.

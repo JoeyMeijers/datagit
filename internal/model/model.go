@@ -1,4 +1,4 @@
-// Package model defines the core data structures shared across dit:
+// Package model defines the core data structures shared across rowen:
 // commits, file entries, chunk manifests, and dataset schemas.
 package model
 

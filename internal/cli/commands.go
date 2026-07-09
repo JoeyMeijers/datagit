@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/joeymeij/dit/internal/repo"
+	"github.com/joeymeij/rowen/internal/repo"
 )
 
 func builtins() []*Command {
@@ -28,8 +28,8 @@ func openRepo() (*repo.Repo, error) {
 func cmdInit() *Command {
 	return &Command{
 		Name:    "init",
-		Summary: "Create an empty dit repository in the current directory",
-		Usage:   "dit init",
+		Summary: "Create an empty rowen repository in the current directory",
+		Usage:   "rowen init",
 		Run: func(out io.Writer, args []string) error {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -38,7 +38,7 @@ func cmdInit() *Command {
 			if err := repo.Init(wd); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "Initialized empty dit repository in %s/%s\n", wd, repo.DirName)
+			fmt.Fprintf(out, "Initialized empty rowen repository in %s/%s\n", wd, repo.DirName)
 			return nil
 		},
 	}
@@ -48,10 +48,10 @@ func cmdAdd() *Command {
 	return &Command{
 		Name:    "add",
 		Summary: "Stage dataset files for the next commit",
-		Usage:   "dit add <file>...",
+		Usage:   "rowen add <file>...",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("usage: dit add <file>...")
+				return fmt.Errorf("usage: rowen add <file>...")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -78,7 +78,7 @@ func cmdCommit() *Command {
 	return &Command{
 		Name:    "commit",
 		Summary: "Record staged files as a new commit",
-		Usage:   "dit commit -m <message>",
+		Usage:   "rowen commit -m <message>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("commit", out)
 			msg := fs.String("m", "", "commit message (required)")
@@ -86,7 +86,7 @@ func cmdCommit() *Command {
 				return err
 			}
 			if *msg == "" {
-				return fmt.Errorf("usage: dit commit -m <message>")
+				return fmt.Errorf("usage: rowen commit -m <message>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -107,7 +107,7 @@ func cmdLog() *Command {
 	return &Command{
 		Name:    "log",
 		Summary: "Show commit history, newest first",
-		Usage:   "dit log",
+		Usage:   "rowen log",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {
@@ -137,7 +137,7 @@ func cmdStatus() *Command {
 	return &Command{
 		Name:    "status",
 		Summary: "Show staged and modified files",
-		Usage:   "dit status",
+		Usage:   "rowen status",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {
@@ -164,7 +164,7 @@ func cmdCheckout() *Command {
 	return &Command{
 		Name:    "checkout",
 		Summary: "Restore all files from a commit into the working tree",
-		Usage:   "dit checkout [--force] <commit>",
+		Usage:   "rowen checkout [--force] <commit>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("checkout", out)
 			force := fs.Bool("force", false, "discard staged changes")
@@ -172,7 +172,7 @@ func cmdCheckout() *Command {
 				return err
 			}
 			if fs.NArg() != 1 {
-				return fmt.Errorf("usage: dit checkout [--force] <commit>")
+				return fmt.Errorf("usage: rowen checkout [--force] <commit>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -193,10 +193,10 @@ func cmdSchema() *Command {
 	return &Command{
 		Name:    "schema",
 		Summary: "Show the detected schema of a file at HEAD",
-		Usage:   "dit schema <file>",
+		Usage:   "rowen schema <file>",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) != 1 {
-				return fmt.Errorf("usage: dit schema <file>")
+				return fmt.Errorf("usage: rowen schema <file>")
 			}
 			r, err := openRepo()
 			if err != nil {
@@ -237,7 +237,7 @@ func cmdVerify() *Command {
 	return &Command{
 		Name:    "verify",
 		Summary: "Check integrity of every stored object",
-		Usage:   "dit verify",
+		Usage:   "rowen verify",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
 			if err != nil {

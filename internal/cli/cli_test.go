@@ -274,7 +274,7 @@ func TestCheckCommand(t *testing.T) {
 
 	// Custom rules file drives behavior.
 	rules := `{"rules":[{"type":"unique","columns":["x"]}]}`
-	if err := os.WriteFile(filepath.Join(dir, ".dit", "config", "rules.json"), []byte(rules), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".rowen", "config", "rules.json"), []byte(rules), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dup := filepath.Join(dir, "dup.csv")

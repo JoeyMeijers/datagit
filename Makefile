@@ -1,17 +1,17 @@
-# dit — build, test, and development tasks.
+# rowen — build, test, and development tasks.
 #
 # Common targets:
-#   make build      compile ./bin/dit
+#   make build      compile ./bin/rowen
 #   make test       run all tests
 #   make check      fmt + vet + test (what CI should run)
 #   make install    install into $(go env GOPATH)/bin
 #   make cover      test with coverage report
 #   make clean      remove build artifacts
 
-BINARY  := dit
+BINARY  := rowen
 BIN_DIR := bin
 PKG     := ./...
-MAIN    := ./cmd/dit
+MAIN    := ./cmd/rowen
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"

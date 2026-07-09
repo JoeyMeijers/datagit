@@ -1,7 +1,7 @@
 package format
 
 // Minimal Apache Thrift *compact protocol* decoder, sufficient to read
-// the Parquet footer (FileMetaData). Implemented in-house so dit can
+// the Parquet footer (FileMetaData). Implemented in-house so rowen can
 // extract Parquet metadata without importing a Parquet/Thrift dependency
 // tree; see ADR-0003. Only decoding is supported, and only the subset of
 // the protocol Parquet uses.
