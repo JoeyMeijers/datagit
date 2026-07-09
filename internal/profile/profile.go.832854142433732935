@@ -1,0 +1,240 @@
+// Package profile computes streaming statistical summaries of tabular
+// datasets: per-column missing/distinct counts, numeric statistics
+// (min/max/mean/stddev exactly; median/quartiles/histogram from a
+// bounded reservoir sample), and dataset-level duplicate-row counts.
+// Memory use is bounded regardless of input size; see ADR-0005.
+package profile
+
+import (
+	"fmt"
+	"hash/fnv"
+	"io"
+	"math"
+	"math/rand"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/joeymeij/datagit/internal/tabular"
+)
+
+const (
+	// distinctCap bounds per-column distinct-value tracking.
+	distinctCap = 10000
+	// sampleCap bounds the reservoir used for quantiles and histograms.
+	sampleCap = 100000
+	// histogramBins is the number of equal-width histogram buckets.
+	histogramBins = 10
+	// reservoirSeed makes sampling deterministic for a given input,
+	// keeping profiles and tests reproducible.
+	reservoirSeed = 1
+)
+
+// Bucket is one histogram bar over [Lo, Hi).
+type Bucket struct {
+	Lo, Hi float64
+	Count  int64
+}
+
+// ColumnStats summarizes one column.
+type ColumnStats struct {
+	Name    string
+	Numeric bool // every non-missing value parsed as a number
+
+	Missing  int64 // empty / whitespace-only values
+	Distinct int64 // exact unless DistinctCapped
+	// DistinctCapped is set when distinct tracking hit its cap; Distinct
+	// is then a lower bound.
+	DistinctCapped bool
+
+	// Numeric statistics (valid only when Numeric and Count > 0).
+	Count                int64 // non-missing numeric values
+	Min, Max             float64
+	Mean, StdDev         float64 // exact (Welford)
+	Median, Q1, Q3       float64 // from sample; exact when Count <= sampleCap
+	Histogram            []Bucket
+	QuantilesFromSample  bool // true when Count > sampleCap
+}
+
+// Report is the profile of a dataset.
+type Report struct {
+	Rows          int64
+	Cols          int
+	DuplicateRows int64 // rows that are exact repeats of an earlier row
+	Columns       []ColumnStats
+}
+
+// Profile consumes r (fully) and returns its statistical report.
+func Profile(r tabular.Reader) (Report, error) {
+	cols := r.Columns()
+	acc := make([]*accumulator, len(cols))
+	for i, name := range cols {
+		acc[i] = newAccumulator(name)
+	}
+	rowHashes := make(map[[16]byte]struct{})
+	rep := Report{Cols: len(cols)}
+
+	h := fnv.New128a()
+	for {
+		rec, err := r.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return Report{}, fmt.Errorf("row %d: %w", rep.Rows+2, err)
+		}
+		rep.Rows++
+
+		h.Reset()
+		for i, v := range rec {
+			if i > 0 {
+				h.Write([]byte{0x1f}) // unit separator: unambiguous row hash
+			}
+			h.Write([]byte(v))
+			if i < len(acc) {
+				acc[i].observe(v)
+			}
+		}
+		// Short rows: absent trailing fields count as missing.
+		for i := len(rec); i < len(acc); i++ {
+			acc[i].observe("")
+		}
+
+		var key [16]byte
+		h.Sum(key[:0])
+		if _, dup := rowHashes[key]; dup {
+			rep.DuplicateRows++
+		} else {
+			rowHashes[key] = struct{}{}
+		}
+	}
+
+	for _, a := range acc {
+		rep.Columns = append(rep.Columns, a.finish())
+	}
+	return rep, nil
+}
+
+// accumulator computes one column's statistics in a single pass.
+type accumulator struct {
+	stats    ColumnStats
+	distinct map[string]struct{}
+
+	// Welford running mean/variance.
+	m2 float64
+
+	// Reservoir sample for quantiles/histogram.
+	sample []float64
+	seen   int64 // numeric values offered to the reservoir
+	rng    *rand.Rand
+}
+
+func newAccumulator(name string) *accumulator {
+	return &accumulator{
+		stats:    ColumnStats{Name: name, Numeric: true, Min: math.Inf(1), Max: math.Inf(-1)},
+		distinct: make(map[string]struct{}),
+		rng:      rand.New(rand.NewSource(reservoirSeed)),
+	}
+}
+
+func (a *accumulator) observe(raw string) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		a.stats.Missing++
+		return
+	}
+	if len(a.distinct) < distinctCap {
+		a.distinct[v] = struct{}{}
+	} else if _, ok := a.distinct[v]; !ok {
+		a.stats.DistinctCapped = true
+	}
+
+	if !a.stats.Numeric {
+		return
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		a.stats.Numeric = false // one non-numeric value demotes the column
+		return
+	}
+	a.stats.Count++
+	if f < a.stats.Min {
+		a.stats.Min = f
+	}
+	if f > a.stats.Max {
+		a.stats.Max = f
+	}
+	// Welford's online algorithm: numerically stable single-pass.
+	delta := f - a.stats.Mean
+	a.stats.Mean += delta / float64(a.stats.Count)
+	a.m2 += delta * (f - a.stats.Mean)
+
+	a.seen++
+	if len(a.sample) < sampleCap {
+		a.sample = append(a.sample, f)
+	} else if j := a.rng.Int63n(a.seen); j < sampleCap {
+		a.sample[j] = f
+	}
+}
+
+func (a *accumulator) finish() ColumnStats {
+	s := a.stats
+	s.Distinct = int64(len(a.distinct))
+	if !s.Numeric || s.Count == 0 {
+		s.Numeric = s.Numeric && s.Count > 0
+		s.Min, s.Max = 0, 0
+		return s
+	}
+	if s.Count > 1 {
+		s.StdDev = math.Sqrt(a.m2 / float64(s.Count-1)) // sample stddev
+	}
+	sort.Float64s(a.sample)
+	s.Q1 = quantile(a.sample, 0.25)
+	s.Median = quantile(a.sample, 0.5)
+	s.Q3 = quantile(a.sample, 0.75)
+	s.QuantilesFromSample = s.Count > sampleCap
+	s.Histogram = histogram(a.sample, s.Min, s.Max)
+	return s
+}
+
+// quantile returns the q-th quantile of sorted values using linear
+// interpolation between closest ranks.
+func quantile(sorted []float64, q float64) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
+	if n == 1 {
+		return sorted[0]
+	}
+	pos := q * float64(n-1)
+	lo := int(math.Floor(pos))
+	hi := int(math.Ceil(pos))
+	if lo == hi {
+		return sorted[lo]
+	}
+	frac := pos - float64(lo)
+	return sorted[lo]*(1-frac) + sorted[hi]*frac
+}
+
+// histogram builds equal-width buckets over [min, max] from values.
+func histogram(values []float64, min, max float64) []Bucket {
+	if len(values) == 0 || min >= max {
+		return nil // constant or empty column: histogram is meaningless
+	}
+	width := (max - min) / histogramBins
+	buckets := make([]Bucket, histogramBins)
+	for i := range buckets {
+		buckets[i].Lo = min + float64(i)*width
+		buckets[i].Hi = min + float64(i+1)*width
+	}
+	buckets[histogramBins-1].Hi = max
+	for _, v := range values {
+		i := int((v - min) / width)
+		if i >= histogramBins {
+			i = histogramBins - 1 // v == max lands in the last bucket
+		}
+		buckets[i].Count++
+	}
+	return buckets
+}

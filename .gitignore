@@ -1,0 +1,26 @@
+# Build artifacts
+/dit
+/bin/
+/dist/
+
+# Test and coverage output
+*.test
+*.out
+coverage.html
+
+# Go workspace files (local-only)
+go.work
+go.work.sum
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# dit repositories created while experimenting in this folder
+.dit/
