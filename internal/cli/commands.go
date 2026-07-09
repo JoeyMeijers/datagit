@@ -13,6 +13,7 @@ func builtins() []*Command {
 		cmdInit(), cmdAdd(), cmdCommit(), cmdLog(), cmdStatus(),
 		cmdCheckout(), cmdSchema(), cmdVerify(), cmdDiff(), cmdProfile(),
 		cmdCheck(), cmdSearch(), cmdGC(), cmdBranch(), cmdSwitch(), cmdMerge(),
+		cmdRemote(), cmdPublish(), cmdFetch(),
 	}
 }
 

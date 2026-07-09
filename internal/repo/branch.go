@@ -142,9 +142,6 @@ func (r *Repo) Merge(other string) (MergeResult, error) {
 	if current == "" {
 		return MergeResult{}, errors.New("not on a branch (detached HEAD); checkout a branch first")
 	}
-	if !r.isBranch(other) {
-		return MergeResult{}, fmt.Errorf("branch %s does not exist", other)
-	}
 	if other == current {
 		return MergeResult{}, fmt.Errorf("cannot merge %s into itself", other)
 	}
@@ -160,9 +157,11 @@ func (r *Repo) Merge(other string) (MergeResult, error) {
 	if err != nil {
 		return MergeResult{}, err
 	}
+	// other may be a branch, a remote-tracking ref (origin/main), or a
+	// commit ID/prefix — anything resolvable and fast-forwardable.
 	target, err := r.resolve(other)
 	if err != nil {
-		return MergeResult{}, err
+		return MergeResult{}, fmt.Errorf("cannot merge %s: %w", other, err)
 	}
 	if head == target {
 		return MergeResult{Status: "up-to-date", CommitID: head}, nil

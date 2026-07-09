@@ -36,6 +36,9 @@ dgit checkout <branch|commit>  # switch branches, or detach at a commit
 dgit merge <branch>            # fast-forward the current branch
 dgit verify                    # integrity-check every stored object
 dgit gc [--dry-run]            # delete chunks no commit references
+dgit remote add origin <url>   # configure a remote (file:// today, s3:// next)
+dgit publish [remote] [branch] # upload branch history to the remote
+dgit fetch [remote]            # download branches into origin/<branch> refs
 ```
 
 Commits can be referenced by branch name or any unique ID prefix of at least 4 characters.
@@ -69,6 +72,8 @@ Repositories start on a `main` branch. `checkout <branch>` switches branches; `c
 `profile` computes per-column statistics in one streaming pass: missing values, distinct counts, min/max/mean/stddev (exact), median/quartiles/histograms (exact up to 100k values per column, reservoir-sampled beyond), plus duplicate-row counts. See ADR-0005 for the algorithms and their memory bounds.
 
 `check` validates datasets against quality rules and exits non-zero on violations, so it slots into CI. Without configuration it applies sane defaults (empty columns, constant columns, duplicate rows, >50% missing, |z|>4 outliers). `search` matches dataset paths and column names across the commit index. `gc` mark-and-sweeps chunks unreachable from every commit and the staging area.
+
+Remotes are serverless: any storage location holding the `objects/commits/refs` layout works. `publish` uploads only missing commits and chunks and moves the remote ref fast-forward-only (it can never destroy remote history — diverged remotes require a fetch first). `fetch` downloads into remote-tracking refs (`origin/main`) without touching your branches; merge with `dgit merge origin/main`. Every fetched chunk and commit is hash-verified on arrival. `file://` remotes work today (local paths, network shares); `s3://` for S3/MinIO/GCS is the next backend behind the same interface (ADR-0008).
 
 ## Configuration
 
@@ -109,4 +114,4 @@ Architecture decision records live in `docs/adr/`. Engineering standards are in 
 
 ## Roadmap
 
-Key-aware row diff, Parquet row reading, cross-file validation rules, lineage tracking, S3/Azure/GCS remotes, Kubernetes job linkage, and a plugin system.
+s3:// remote backend (S3/MinIO/GCS), key-aware row diff, three-way merge, Parquet row reading, cross-file validation rules, lineage tracking, Kubernetes job linkage, and a plugin system.

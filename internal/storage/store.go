@@ -227,6 +227,48 @@ func (s *Store) SizeOf(hash string) (int64, error) {
 	return fi.Size(), nil
 }
 
+// OpenRaw streams an object's stored (compressed) bytes, for transfer
+// to remotes without recompression.
+func (s *Store) OpenRaw(hash string) (io.ReadCloser, error) {
+	p, err := s.objectPath(hash)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(p)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, hash)
+	}
+	return f, err
+}
+
+// PutRaw stores already-compressed object bytes under hash (used by
+// fetch). Callers must verify integrity afterwards via ReadChunk.
+func (s *Store) PutRaw(hash string, r io.Reader) error {
+	p, err := s.objectPath(hash)
+	if err != nil {
+		return err
+	}
+	if s.Has(hash) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(p), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := io.Copy(tmp, r); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), p)
+}
+
 // VerifyAll re-hashes every object in the store and returns the hashes of
 // corrupt or unreadable objects. A nil error with an empty slice means the
 // store is healthy.

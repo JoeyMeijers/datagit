@@ -434,6 +434,82 @@ func TestBranchAndMergeCommands(t *testing.T) {
 	}
 }
 
+func TestRemotePublishFetchCommands(t *testing.T) {
+	remoteDir := t.TempDir()
+	url := "file://" + filepath.Join(remoteDir, "store")
+
+	// Producer.
+	src, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, src, "init"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := run(t, src, "remote")
+	if err != nil || !strings.Contains(out, "no remotes") {
+		t.Fatalf("remote list: %v %q", err, out)
+	}
+	if _, err := run(t, src, "remote", "add", "origin", url); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(t, src, "remote")
+	if err != nil || !strings.Contains(out, "origin") {
+		t.Fatalf("remote list: %v %q", err, out)
+	}
+	if err := os.WriteFile(filepath.Join(src, "d.csv"), []byte("x\n1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, src, "add", "d.csv"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, src, "commit", "-m", "v1"); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(t, src, "publish")
+	if err != nil || !strings.Contains(out, "published main → origin") {
+		t.Fatalf("publish: %v %q", err, out)
+	}
+	out, err = run(t, src, "publish")
+	if err != nil || !strings.Contains(out, "already up to date") {
+		t.Fatalf("re-publish: %v %q", err, out)
+	}
+
+	// Consumer.
+	dst, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dst, "init"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dst, "remote", "add", "origin", url); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(t, dst, "fetch")
+	if err != nil || !strings.Contains(out, "origin/main") {
+		t.Fatalf("fetch: %v %q", err, out)
+	}
+	if _, err := run(t, dst, "merge", "origin/main"); err != nil {
+		t.Fatalf("merge from tracking ref: %v", err)
+	}
+	blob, err := os.ReadFile(filepath.Join(dst, "d.csv"))
+	if err != nil || string(blob) != "x\n1\n" {
+		t.Fatalf("worktree = %q err=%v", blob, err)
+	}
+
+	// Bad invocations.
+	if _, err := run(t, dst, "remote", "add", "onlyname"); err == nil {
+		t.Fatal("remote add with missing url should fail")
+	}
+	if _, err := run(t, dst, "fetch", "nosuch"); err == nil {
+		t.Fatal("fetch of unconfigured remote should fail")
+	}
+	if _, err := run(t, dst, "publish", "origin", "ghost"); err == nil {
+		t.Fatal("publish of unknown branch should fail")
+	}
+}
+
 func TestCommitRequiresMessage(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {

@@ -357,6 +357,15 @@ func (r *Repo) resolve(ref string) (string, error) {
 	if blob, err := os.ReadFile(r.branchPath(ref)); err == nil {
 		return strings.TrimSpace(string(blob)), nil
 	}
+	// Remote-tracking refs: "<remote>/<branch>".
+	if name, branch, ok := strings.Cut(ref, "/"); ok {
+		if branchNameRe.MatchString(name) && branchNameRe.MatchString(branch) {
+			p := filepath.Join(metaDir(r.Root), "refs", "remotes", name, branch)
+			if blob, err := os.ReadFile(p); err == nil {
+				return strings.TrimSpace(string(blob)), nil
+			}
+		}
+	}
 	if len(ref) == 64 {
 		return ref, nil
 	}
