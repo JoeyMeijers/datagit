@@ -407,6 +407,31 @@ func TestBranchAndMergeCommands(t *testing.T) {
 	if _, err := run(t, dir, "merge"); err == nil {
 		t.Fatal("merge without args should fail")
 	}
+
+	// switch -c creates and switches in one step.
+	out, err = run(t, dir, "switch", "-c", "feature")
+	if err != nil || !strings.Contains(out, "switched to branch feature") {
+		t.Fatalf("switch -c: %v %q", err, out)
+	}
+	out, err = run(t, dir, "status")
+	if err != nil || !strings.Contains(out, "on branch feature") {
+		t.Fatalf("status: %v %q", err, out)
+	}
+	// Plain switch requires the branch to exist.
+	if _, err := run(t, dir, "switch", "nope"); err == nil {
+		t.Fatal("switch to missing branch should fail")
+	}
+	out, err = run(t, dir, "switch", "main")
+	if err != nil || !strings.Contains(out, "switched to branch main") {
+		t.Fatalf("switch back: %v %q", err, out)
+	}
+	// -c on an existing branch fails.
+	if _, err := run(t, dir, "switch", "-c", "feature"); err == nil {
+		t.Fatal("switch -c existing branch should fail")
+	}
+	if _, err := run(t, dir, "switch"); err == nil {
+		t.Fatal("switch without args should fail")
+	}
 }
 
 func TestCommitRequiresMessage(t *testing.T) {

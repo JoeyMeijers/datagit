@@ -60,6 +60,44 @@ func cmdBranch() *Command {
 	}
 }
 
+func cmdSwitch() *Command {
+	return &Command{
+		Name:    "switch",
+		Summary: "Switch branches (-c creates the branch first)",
+		Usage:   "dgit switch [-c] <branch>",
+		Run: func(out io.Writer, args []string) error {
+			fs := newFlagSet("switch", out)
+			create := fs.Bool("c", false, "create the branch, then switch to it")
+			force := fs.Bool("force", false, "discard staged changes")
+			if err := fs.Parse(args); err != nil {
+				return err
+			}
+			if fs.NArg() != 1 {
+				return fmt.Errorf("usage: dgit switch [-c] <branch>")
+			}
+			name := fs.Arg(0)
+			r, err := openRepo()
+			if err != nil {
+				return err
+			}
+			defer r.Close()
+
+			if *create {
+				if err := r.CreateBranch(name); err != nil {
+					return err
+				}
+			} else if !r.IsBranch(name) {
+				return fmt.Errorf("branch %s does not exist (use -c to create it)", name)
+			}
+			if _, err := r.Checkout(name, *force); err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "switched to branch %s\n", name)
+			return nil
+		},
+	}
+}
+
 func cmdMerge() *Command {
 	return &Command{
 		Name:    "merge",

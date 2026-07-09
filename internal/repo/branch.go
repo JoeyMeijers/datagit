@@ -37,6 +37,9 @@ func (r *Repo) branchPath(name string) string {
 	return filepath.Join(metaDir(r.Root), "refs", "heads", name)
 }
 
+// IsBranch reports whether ref names an existing branch.
+func (r *Repo) IsBranch(ref string) bool { return r.isBranch(ref) }
+
 // isBranch reports whether ref names an existing branch.
 func (r *Repo) isBranch(ref string) bool {
 	if !branchNameRe.MatchString(strings.TrimSpace(ref)) {

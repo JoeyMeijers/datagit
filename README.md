@@ -31,6 +31,7 @@ dgit profile population.csv    # column statistics; --hist adds histograms
 dgit check population.csv     # validate against quality rules (exit 1 on violations)
 dgit search income             # find datasets by path or column name
 dgit branch [name]             # list or create branches (-d deletes)
+dgit switch [-c] <branch>      # switch branches (-c creates it first)
 dgit checkout <branch|commit>  # switch branches, or detach at a commit
 dgit merge <branch>            # fast-forward the current branch
 dgit verify                    # integrity-check every stored object

@@ -12,7 +12,7 @@ func builtins() []*Command {
 	return []*Command{
 		cmdInit(), cmdAdd(), cmdCommit(), cmdLog(), cmdStatus(),
 		cmdCheckout(), cmdSchema(), cmdVerify(), cmdDiff(), cmdProfile(),
-		cmdCheck(), cmdSearch(), cmdGC(), cmdBranch(), cmdMerge(),
+		cmdCheck(), cmdSearch(), cmdGC(), cmdBranch(), cmdSwitch(), cmdMerge(),
 	}
 }
 
