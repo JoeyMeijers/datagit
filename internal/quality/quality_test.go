@@ -189,3 +189,19 @@ func TestViolationString(t *testing.T) {
 		t.Fatalf("string = %q", got)
 	}
 }
+
+func TestIsDateTime(t *testing.T) {
+	for v, want := range map[string]bool{
+		"2026-01-02T03:04:05Z":      true,
+		"2026-01-02T03:04:05+02:00": true,
+		"2026-01-02 03:04:05":       true,
+		"2026-01-02T03:04:05":       true,
+		"2026-01-02":                false,
+		"":                          false,
+		"2026-13-02 03:04:05":       false,
+	} {
+		if got := isDateTime(v); got != want {
+			t.Errorf("isDateTime(%q) = %v, want %v", v, got, want)
+		}
+	}
+}
