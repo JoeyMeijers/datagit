@@ -32,7 +32,7 @@ func cmdCheck() *Command {
 			for _, path := range args {
 				tr, err := tabular.Open(path)
 				if errors.Is(err, tabular.ErrUnsupported) {
-					fmt.Fprintf(out, "%s: skipped (%s not checkable)\n", path, tabular.FormatOf(path))
+					fmt.Fprintf(out, "%s: skipped (%v)\n", path, err)
 					continue
 				}
 				if err != nil {

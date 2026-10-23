@@ -519,3 +519,39 @@ func TestCommitRequiresMessage(t *testing.T) {
 		t.Fatal("commit without -m should fail")
 	}
 }
+
+func TestNonTextCSVCommands(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatal(err)
+	}
+	csv := filepath.Join(dir, "d.csv")
+	if err := os.WriteFile(csv, []byte("x\n1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "add", "d.csv"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, dir, "commit", "-m", "v1"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Overwrite with a zip (as when a spreadsheet app saves to .csv).
+	if err := os.WriteFile(csv, []byte("PK\x03\x04\x14\x00\x00\x00\"x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := run(t, dir, "diff")
+	if err != nil || !strings.Contains(out, "modified: d.csv") {
+		t.Fatalf("diff: %v %q", err, out)
+	}
+	if _, err := run(t, dir, "profile", "d.csv"); err == nil || !strings.Contains(err.Error(), "zip archive") {
+		t.Fatalf("profile err = %v, want zip archive hint", err)
+	}
+	out, err = run(t, dir, "check", "d.csv")
+	if err != nil || !strings.Contains(out, "skipped") || !strings.Contains(out, "zip archive") {
+		t.Fatalf("check: %v %q", err, out)
+	}
+}

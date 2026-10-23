@@ -10,7 +10,7 @@ Accepted
 
 ## Decision
 
-Shared row access goes through `internal/tabular.Reader` (CSV/TSV now; Parquet and other formats plug in later). Formats without a row reader degrade gracefully: diff falls back to metadata-only (schema and row-count changes from stored commit metadata).
+Shared row access goes through `internal/tabular.Reader` (CSV/TSV now; Parquet and other formats plug in later). Formats without a row reader degrade gracefully: diff falls back to metadata-only (schema and row-count changes from stored commit metadata). Because formats are chosen by file extension, the CSV/TSV reader first sniffs the leading 4 KiB for NUL bytes; non-text content (typically a zip-based spreadsheet saved as `.csv`) is reported as unsupported rather than parsed, so it takes the same fallback on either side of a diff.
 
 **Diff** treats rows as an unordered multiset. Old rows are hashed (128-bit FNV-1a, fields joined by a unit separator) into a count map; new rows decrement it. Surplus new rows are "added", leftover counts are "removed". Reordering is therefore not a change. Without a primary key, "modified rows" cannot be distinguished from remove+add and is not reported; key-aware diff is future work. Schema changes come from commit metadata — free, no data read.
 

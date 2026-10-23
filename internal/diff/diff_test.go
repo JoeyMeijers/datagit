@@ -208,3 +208,18 @@ func TestEmptyCommits(t *testing.T) {
 		t.Fatalf("changes=%v err=%v", changes, err)
 	}
 }
+
+func TestNonTextReplacementMetadataOnly(t *testing.T) {
+	// A CSV overwritten by a binary file with the same name (e.g. a
+	// spreadsheet saved as .csv) must not abort the diff.
+	old := commitOf(map[string]model.FileEntry{"a.csv": entry("a.csv", "csv", "s1", nil, 1)})
+	new_ := commitOf(map[string]model.FileEntry{"a.csv": entry("a.csv", "csv", "s2", nil, 0)})
+	contents := map[string]string{"s1": "id\n1\n", "s2": "PK\x03\x04\x00\x00\"x"}
+	changes, err := Commits(old, new_, opener(contents), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch := single(t, changes, "modified"); ch.RowDiff {
+		t.Fatal("non-text side must not row-diff")
+	}
+}

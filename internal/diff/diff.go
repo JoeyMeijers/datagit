@@ -132,7 +132,13 @@ func diffRows(ch *FileChange, open OpenFunc, opts Options) error {
 	}
 	defer oldReader.Close()
 
+	// The new side can be unsupported even when the old one is not:
+	// its format comes from the extension, but the content may have
+	// been replaced by a non-text file under the same name.
 	newReader, err := openTabular(*ch.New, open)
+	if errors.Is(err, tabular.ErrUnsupported) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

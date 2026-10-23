@@ -8,6 +8,8 @@
 package tabular
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -65,12 +67,38 @@ func FormatOf(path string) string {
 func ForFormat(format string, src io.ReadCloser) (Reader, error) {
 	switch format {
 	case "csv":
-		return newCSVReader(src, ',')
+		return newCSVReader(src, format, ',')
 	case "tsv":
-		return newCSVReader(src, '\t')
+		return newCSVReader(src, format, '\t')
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupported, format)
 	}
+}
+
+// sniffLen is how many leading bytes are inspected for binary content.
+const sniffLen = 4096
+
+// zipMagic opens every zip archive, which covers .xlsx, .ods and Apple
+// Numbers documents: the usual culprits when a "CSV" is not text.
+var zipMagic = []byte("PK\x03\x04")
+
+// sniffText returns an ErrUnsupported-wrapping error if the start of br
+// is not text. Formats are chosen by extension, so a spreadsheet saved
+// under a .csv name would otherwise surface as a cryptic parse error.
+// Text never contains NUL bytes; binary formats almost always do early.
+func sniffText(br *bufio.Reader, format string) error {
+	head, err := br.Peek(sniffLen)
+	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+		return err
+	}
+	if bytes.IndexByte(head, 0) < 0 {
+		return nil
+	}
+	kind := "binary data"
+	if bytes.HasPrefix(head, zipMagic) {
+		kind = "a zip archive, e.g. a spreadsheet saved with a ." + format + " extension"
+	}
+	return fmt.Errorf("%w: content is not %s text (looks like %s)", ErrUnsupported, format, kind)
 }
 
 // csvReader streams CSV/TSV rows. The first record is the header.
@@ -80,8 +108,12 @@ type csvReader struct {
 	columns []string
 }
 
-func newCSVReader(src io.ReadCloser, comma rune) (*csvReader, error) {
-	r := csv.NewReader(src)
+func newCSVReader(src io.ReadCloser, format string, comma rune) (*csvReader, error) {
+	br := bufio.NewReaderSize(src, sniffLen)
+	if err := sniffText(br, format); err != nil {
+		return nil, err
+	}
+	r := csv.NewReader(br)
 	r.Comma = comma
 	r.FieldsPerRecord = -1 // tolerate ragged rows
 	r.ReuseRecord = true

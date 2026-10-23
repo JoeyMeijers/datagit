@@ -120,7 +120,7 @@ func cmdProfile() *Command {
 			path := fs.Arg(0)
 			r, err := tabular.Open(path)
 			if errors.Is(err, tabular.ErrUnsupported) {
-				return fmt.Errorf("profile supports csv/tsv files (got %s)", tabular.FormatOf(path))
+				return fmt.Errorf("profile %s: %w", path, err)
 			}
 			if err != nil {
 				return err

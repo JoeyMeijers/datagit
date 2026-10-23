@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -112,5 +113,47 @@ func TestFormatOf(t *testing.T) {
 		if got := FormatOf(path); got != want {
 			t.Errorf("FormatOf(%q) = %s, want %s", path, got, want)
 		}
+	}
+}
+
+func TestOpenRejectsNonText(t *testing.T) {
+	cases := []struct {
+		name, content, wantHint string
+	}{
+		{"zip.csv", "PK\x03\x04\x14\x00\x00\x00", "zip archive"},
+		{"nul.tsv", "a\tb\n1\x002\n", "binary data"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Open(writeFile(t, tc.name, tc.content))
+			if !errors.Is(err, ErrUnsupported) {
+				t.Fatalf("err = %v, want ErrUnsupported", err)
+			}
+			if !strings.Contains(err.Error(), tc.wantHint) {
+				t.Fatalf("err = %q, want hint %q", err, tc.wantHint)
+			}
+		})
+	}
+}
+
+func TestNonTextDetectedPastFirstLine(t *testing.T) {
+	// A NUL anywhere in the sniffed prefix marks the file as binary,
+	// even when the first line happens to be valid CSV.
+	_, err := Open(writeFile(t, "d.csv", "a,b\n"+strings.Repeat("1,2\n", 100)+"\x00"))
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("err = %v, want ErrUnsupported", err)
+	}
+}
+
+func TestTextPastSniffWindowStillReads(t *testing.T) {
+	// Files larger than the sniff window must stream in full.
+	body := strings.Repeat("1,x\n", sniffLen)
+	r, err := Open(writeFile(t, "d.csv", "a,b\n"+body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if rows := readAll(t, r); len(rows) != sniffLen {
+		t.Fatalf("rows = %d, want %d", len(rows), sniffLen)
 	}
 }
