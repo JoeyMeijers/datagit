@@ -173,7 +173,21 @@ func (r *Repo) Add(path string) (model.FileEntry, error) {
 		return model.FileEntry{}, err
 	}
 
+	// Storing the bytes and detecting the format are independent passes
+	// over the file; run them concurrently so add takes as long as the
+	// slower one, not both (ADR-0012).
+	extracted := make(chan format.Info, 1)
+	go func() {
+		info, err := format.Extract(filepath.Join(r.Root, filepath.FromSlash(rel)))
+		if err != nil {
+			// Metadata extraction is best-effort: a malformed CSV must not
+			// block versioning the bytes. Record it as opaque binary.
+			info = format.Info{Format: "binary"}
+		}
+		extracted <- info
+	}()
 	manifest, sum, size, err := r.store.PutFile(f)
+	info := <-extracted
 	if err != nil {
 		return model.FileEntry{}, fmt.Errorf("storing %s: %w", rel, err)
 	}
@@ -183,12 +197,6 @@ func (r *Repo) Add(path string) (model.FileEntry, error) {
 		SHA256:   sum,
 		Manifest: manifest,
 		StagedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-	info, err := format.Extract(filepath.Join(r.Root, filepath.FromSlash(rel)))
-	if err != nil {
-		// Metadata extraction is best-effort: a malformed CSV must not
-		// block versioning the bytes. Record it as opaque binary.
-		info = format.Info{Format: "binary"}
 	}
 	// Content and metadata come from separate reads; refuse to record a
 	// mismatched pair if the file was rewritten in between.
