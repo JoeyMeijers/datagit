@@ -672,8 +672,3 @@ func (r *Repo) restoreFile(f model.FileEntry) error {
 	}
 	return os.Rename(tmp.Name(), dst)
 }
-
-// Verify checks every object in the store and returns corrupt hashes.
-func (r *Repo) Verify() ([]string, error) {
-	return r.store.VerifyAll()
-}

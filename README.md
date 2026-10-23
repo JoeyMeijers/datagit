@@ -34,7 +34,7 @@ dgit branch [name]             # list or create branches (-d deletes)
 dgit switch [-c] <branch>      # switch branches (-c creates it first)
 dgit checkout <branch|commit>  # switch branches, or detach at a commit
 dgit merge <branch>            # fast-forward the current branch
-dgit verify                    # integrity-check every stored object
+dgit verify                    # integrity-check every chunk and commit
 dgit gc [--dry-run]            # delete chunks no commit references
 dgit remote add origin <url>   # configure a remote (file:// today, s3:// next)
 dgit publish [remote] [branch] # upload branch history to the remote
@@ -54,8 +54,8 @@ Repositories start on a `main` branch. `checkout <branch>` switches branches; `c
     objects/     content-addressable chunks (SHA-256, zstd-compressed)
     commits/     one JSON document per commit (source of truth)
     metadata/    reserved for the metadata catalog
-    refs/        HEAD
-    config/      config.json (author)
+    refs/        HEAD, heads/<branch>, remotes/<remote>/<branch>
+    config/      config.json (author), remotes.json
     index.db     SQLite: staging area + queryable commit index
 ```
 

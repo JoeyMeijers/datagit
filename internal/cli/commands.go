@@ -242,7 +242,7 @@ func cmdSchema() *Command {
 func cmdVerify() *Command {
 	return &Command{
 		Name:    "verify",
-		Summary: "Check integrity of every stored object",
+		Summary: "Check integrity of every stored chunk and commit",
 		Usage:   "dgit verify",
 		Run: func(out io.Writer, args []string) error {
 			r, err := openRepo()
@@ -255,12 +255,12 @@ func cmdVerify() *Command {
 				return err
 			}
 			if len(bad) > 0 {
-				for _, h := range bad {
-					fmt.Fprintf(out, "corrupt: %s\n", h)
+				for _, problem := range bad {
+					fmt.Fprintln(out, problem)
 				}
-				return fmt.Errorf("%d corrupt object(s) found", len(bad))
+				return fmt.Errorf("%d integrity problem(s) found", len(bad))
 			}
-			fmt.Fprintln(out, "all objects verified OK")
+			fmt.Fprintln(out, "all objects and commits verified OK")
 			return nil
 		},
 	}
