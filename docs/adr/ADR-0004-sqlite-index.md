@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0010 (driver choice). The rest of this decision — an embedded SQLite index confined to `internal/index`, with commit JSON as the source of truth — still stands.
 
 ## Context
 

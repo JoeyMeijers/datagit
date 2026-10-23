@@ -13,7 +13,7 @@ make build          # compiles ./bin/dgit
 make install        # installs into $(go env GOPATH)/bin
 ```
 
-Requires Go 1.24+ and a C compiler (for the embedded SQLite index). Run `make help` for all targets; `make check` (fmt + vet + tests) is the main CI entry point; CI also runs `make race`, `make lint` (golangci-lint), and `make vuln` (govulncheck).
+Requires Go 1.26+. No C compiler is needed: the embedded SQLite index uses a pure-Go driver, so `dgit` is a static binary and `make cross` builds it for Linux, macOS, and Windows from any machine (ADR-0010). Run `make help` for all targets; `make check` (fmt + vet + tests) is the main CI entry point; CI also runs `make race`, `make lint` (golangci-lint), and `make vuln` (govulncheck).
 
 ## Usage
 
@@ -108,7 +108,9 @@ See ADR-0006 for rule semantics.
 
 ```bash
 make check       # gofmt check + go vet + all tests (offline, deterministic)
-make race        # tests under the race detector
+make race        # tests under the race detector (needs a C compiler on Linux)
+make bench       # benchmarks
+make cross       # cross-compile for all release platforms
 make lint        # golangci-lint, configured in .golangci.yml
 make vuln        # govulncheck dependency scan
 ```

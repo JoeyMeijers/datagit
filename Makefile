@@ -18,8 +18,12 @@ LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 
 GOVULNCHECK_VERSION := v1.1.4
 
-# mattn/go-sqlite3 requires cgo (see ADR-0004).
-export CGO_ENABLED := 1
+# Pure Go, no C toolchain: builds are static and cross-compile freely
+# (ADR-0010). Only the race detector still needs cgo on Linux.
+export CGO_ENABLED := 0
+
+# Targets for `make cross`.
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 
 .DEFAULT_GOAL := build
 
@@ -43,8 +47,20 @@ cover: ## Run tests with coverage summary and HTML report
 	@echo "open coverage.html for details"
 
 .PHONY: race
-race: ## Run tests with the race detector
-	go test -race $(PKG)
+race: ## Run tests with the race detector (needs a C compiler on Linux)
+	CGO_ENABLED=1 go test -race $(PKG)
+
+.PHONY: cross
+cross: ## Cross-compile for every release platform into ./bin
+	@for p in $(PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; ext=$$([ $$os = windows ] && echo .exe); \
+		echo "building $$os/$$arch"; \
+		GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY)-$$os-$$arch$$ext $(MAIN) || exit 1; \
+	done
+
+.PHONY: bench
+bench: ## Run benchmarks
+	go test -run '^$$' -bench . $(PKG)
 
 .PHONY: fmt
 fmt: ## Format all Go files

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3" // registers the "sqlite3" driver
+	_ "modernc.org/sqlite" // registers the pure-Go "sqlite" driver (ADR-0010)
 
 	"github.com/joeymeij/datagit/internal/model"
 )
@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_commit_files_path ON commit_files(path);
 
 // Open opens (creating if necessary) the index database at path.
 func Open(path string) (*DB, error) {
-	db, err := sql.Open("sqlite3", path+"?_busy_timeout=5000&_journal_mode=WAL")
+	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, fmt.Errorf("opening index db: %w", err)
 	}

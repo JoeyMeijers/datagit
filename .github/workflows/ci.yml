@@ -22,6 +22,8 @@ jobs:
         run: make race
       - name: vulnerability scan
         run: make vuln
+      - name: cross-compile all platforms
+        run: make cross
 
   lint:
     runs-on: ubuntu-latest
