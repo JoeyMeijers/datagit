@@ -68,7 +68,7 @@ func cmdSwitch() *Command {
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("switch", out)
 			create := fs.Bool("c", false, "create the branch, then switch to it")
-			force := fs.Bool("force", false, "discard staged changes")
+			force := fs.Bool("force", false, "discard staged changes and overwrite local edits")
 			if err := fs.Parse(args); err != nil {
 				return err
 			}

@@ -173,7 +173,7 @@ func cmdCheckout() *Command {
 		Usage:   "dgit checkout [--force] <commit>",
 		Run: func(out io.Writer, args []string) error {
 			fs := newFlagSet("checkout", out)
-			force := fs.Bool("force", false, "discard staged changes")
+			force := fs.Bool("force", false, "discard staged changes and overwrite local edits")
 			if err := fs.Parse(args); err != nil {
 				return err
 			}

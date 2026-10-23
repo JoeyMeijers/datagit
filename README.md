@@ -43,7 +43,7 @@ dgit fetch [remote]            # download branches into origin/<branch> refs
 
 Commits can be referenced by branch name or any unique ID prefix of at least 4 characters.
 
-Repositories start on a `main` branch. `checkout <branch>` switches branches; `checkout <commit>` detaches HEAD at that commit. `merge` is currently fast-forward only — diverged branches are rejected until three-way dataset merge lands (ADR-0007).
+Repositories start on a `main` branch. `checkout <branch>` switches branches; `checkout <commit>` detaches HEAD at that commit. Checkout makes the working tree match the target exactly — files the target does not track are removed — and refuses to run if that would destroy work: staged changes, edited tracked files, or untracked files the target would overwrite. `--force` overrides the check and discards staged changes. Fast-forward `merge` applies the same protection. `merge` is currently fast-forward only — diverged branches are rejected until three-way dataset merge lands (ADR-0007).
 
 ## How it works
 
@@ -106,8 +106,10 @@ See ADR-0006 for rule semantics.
 ## Development
 
 ```bash
-go test ./...    # all tests are offline and deterministic
-go vet ./...
+make check       # gofmt check + go vet + all tests (offline, deterministic)
+make race        # tests under the race detector
+make lint        # golangci-lint, configured in .golangci.yml
+make vuln        # govulncheck dependency scan
 ```
 
 Architecture decision records live in `docs/adr/`. Engineering standards are in `AGENTS.md`. Parquet test fixtures are committed under `internal/format/testdata/` and regenerated with `gen_fixtures.py` (pyarrow).

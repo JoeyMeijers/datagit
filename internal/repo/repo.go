@@ -508,27 +508,21 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// Checkout restores every file of the given commit into the working
-// tree. If ref is a branch name, HEAD attaches to that branch;
-// otherwise HEAD detaches at the commit. Unless force is set, it
-// refuses to run while changes are staged.
+// Checkout makes the working tree match the given commit. If ref is a
+// branch name, HEAD attaches to that branch; otherwise HEAD detaches at
+// the commit. Unless force is set, it refuses to discard work (see
+// updateWorktree); with force, staged changes are discarded too.
 func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
-	if !force {
-		staged, err := r.idx.Staged()
-		if err != nil {
-			return model.Commit{}, err
-		}
-		if len(staged) > 0 {
-			return model.Commit{}, errors.New("staging area is not empty; commit first or use --force")
-		}
-	}
 	c, err := r.LoadCommit(ref)
 	if err != nil {
 		return model.Commit{}, err
 	}
-	for _, f := range c.Files {
-		if err := r.restoreFile(f); err != nil {
-			return model.Commit{}, fmt.Errorf("restoring %s: %w", f.Path, err)
+	if err := r.updateWorktree(c, force); err != nil {
+		return model.Commit{}, err
+	}
+	if force {
+		if err := r.idx.ClearStaging(); err != nil {
+			return model.Commit{}, err
 		}
 	}
 	if r.isBranch(ref) {
@@ -540,6 +534,110 @@ func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
 		return model.Commit{}, err
 	}
 	return c, nil
+}
+
+// updateWorktree moves the working tree from HEAD's files to target's:
+// it restores every target file and deletes files tracked at HEAD that
+// target lacks. Unless force is set, it first refuses if that would
+// lose work — staged changes, modified tracked files, or untracked
+// files that target would overwrite.
+func (r *Repo) updateWorktree(target model.Commit, force bool) error {
+	var current []model.FileEntry
+	head, err := r.Head()
+	if err != nil {
+		return err
+	}
+	if head != "" {
+		hc, err := r.LoadCommit(head)
+		if err != nil {
+			return err
+		}
+		current = hc.Files
+	}
+	if !force {
+		if err := r.checkWorktreeClean(current, target.Files); err != nil {
+			return err
+		}
+	}
+
+	inTarget := map[string]bool{}
+	for _, f := range target.Files {
+		inTarget[f.Path] = true
+		if err := r.restoreFile(f); err != nil {
+			return fmt.Errorf("restoring %s: %w", f.Path, err)
+		}
+	}
+	for _, f := range current {
+		if inTarget[f.Path] {
+			continue
+		}
+		if err := validateEntryPath(f.Path); err != nil {
+			return err
+		}
+		err := os.Remove(filepath.Join(r.Root, filepath.FromSlash(f.Path)))
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing %s: %w", f.Path, err)
+		}
+	}
+	return nil
+}
+
+// checkWorktreeClean returns an error naming every file whose
+// uncommitted content a switch from current to target would destroy.
+func (r *Repo) checkWorktreeClean(current, target []model.FileEntry) error {
+	staged, err := r.idx.Staged()
+	if err != nil {
+		return err
+	}
+	if len(staged) > 0 {
+		return errors.New("staging area is not empty; commit first or use --force")
+	}
+	tracked := map[string]bool{}
+	var dirty []string
+	for _, f := range current {
+		tracked[f.Path] = true
+		changed, err := r.differsOnDisk(f.Path, f.SHA256)
+		if err != nil {
+			return err
+		}
+		if changed {
+			dirty = append(dirty, f.Path)
+		}
+	}
+	for _, f := range target {
+		if tracked[f.Path] {
+			continue
+		}
+		changed, err := r.differsOnDisk(f.Path, f.SHA256)
+		if err != nil {
+			return err
+		}
+		if changed {
+			dirty = append(dirty, f.Path+" (untracked)")
+		}
+	}
+	if len(dirty) > 0 {
+		sort.Strings(dirty)
+		return fmt.Errorf("local changes would be overwritten: %s; commit them or use --force",
+			strings.Join(dirty, ", "))
+	}
+	return nil
+}
+
+// differsOnDisk reports whether the working-tree file at rel exists
+// with content other than sum. A missing file loses nothing.
+func (r *Repo) differsOnDisk(rel, sum string) (bool, error) {
+	if err := validateEntryPath(rel); err != nil {
+		return false, err
+	}
+	got, err := hashFile(filepath.Join(r.Root, filepath.FromSlash(rel)))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return got != sum, nil
 }
 
 // restoreFile writes a file entry to a temp file and renames it into
@@ -565,6 +663,11 @@ func (r *Repo) restoreFile(f model.FileEntry) error {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// CreateTemp makes files owner-only; restored data should get the
+	// usual permissions.
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), dst)

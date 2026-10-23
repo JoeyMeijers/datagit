@@ -187,10 +187,8 @@ func (r *Repo) Merge(other string) (MergeResult, error) {
 	if err != nil {
 		return MergeResult{}, err
 	}
-	for _, f := range c.Files {
-		if err := r.restoreFile(f); err != nil {
-			return MergeResult{}, fmt.Errorf("restoring %s: %w", f.Path, err)
-		}
+	if err := r.updateWorktree(c, false); err != nil {
+		return MergeResult{}, err
 	}
 	if err := writeFileAtomic(r.branchPath(current), []byte(c.ID+"\n")); err != nil {
 		return MergeResult{}, err
