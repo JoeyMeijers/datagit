@@ -59,7 +59,7 @@ func (r *Repo) saveRemotes(remotes map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(r.remotesPath(), blob, 0o644)
+	return writeFileAtomic(r.remotesPath(), blob)
 }
 
 // AddRemote registers a remote after validating its URL scheme.
@@ -252,7 +252,7 @@ func (r *Repo) Fetch(remoteName string) ([]SyncResult, error) {
 		if err := os.MkdirAll(filepath.Dir(trackPath), 0o755); err != nil {
 			return out, err
 		}
-		if err := os.WriteFile(trackPath, []byte(tip+"\n"), 0o644); err != nil {
+		if err := writeFileAtomic(trackPath, []byte(tip+"\n")); err != nil {
 			return out, err
 		}
 		res.UpToDate = res.Commits == 0

@@ -238,13 +238,8 @@ func (r *Repo) Commit(message string) (model.Commit, error) {
 		return model.Commit{}, err
 	}
 
-	blob, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
+	if err := r.writeCommitFile(c); err != nil {
 		return model.Commit{}, err
-	}
-	commitPath := filepath.Join(metaDir(r.Root), "commits", c.ID+".json")
-	if err := os.WriteFile(commitPath, blob, 0o644); err != nil {
-		return model.Commit{}, fmt.Errorf("writing commit: %w", err)
 	}
 	if err := r.idx.PutCommit(c); err != nil {
 		return model.Commit{}, err
@@ -256,6 +251,44 @@ func (r *Repo) Commit(message string) (model.Commit, error) {
 		return model.Commit{}, err
 	}
 	return c, nil
+}
+
+// writeCommitFile atomically stores a commit document under its ID.
+func (r *Repo) writeCommitFile(c model.Commit) error {
+	blob, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	commitPath := filepath.Join(metaDir(r.Root), "commits", c.ID+".json")
+	if err := writeFileAtomic(commitPath, blob); err != nil {
+		return fmt.Errorf("writing commit %s: %w", c.ID[:12], err)
+	}
+	return nil
+}
+
+// writeFileAtomic replaces path with data via temp-file-and-rename, so a
+// crash never leaves a truncated commit or ref behind.
+func writeFileAtomic(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // commitID derives a deterministic ID from the commit's canonical JSON
@@ -323,13 +356,13 @@ func (r *Repo) setHead(id string) error {
 		return err
 	}
 	if name, symbolic := strings.CutPrefix(raw, headRefPrefix); symbolic {
-		return os.WriteFile(r.branchPath(name), []byte(id+"\n"), 0o644)
+		return writeFileAtomic(r.branchPath(name), []byte(id+"\n"))
 	}
 	return r.writeHeadFile(id)
 }
 
 func (r *Repo) writeHeadFile(content string) error {
-	return os.WriteFile(filepath.Join(metaDir(r.Root), "refs", "HEAD"), []byte(content+"\n"), 0o644)
+	return writeFileAtomic(filepath.Join(metaDir(r.Root), "refs", "HEAD"), []byte(content+"\n"))
 }
 
 // LoadCommit reads a commit by full ID or unique prefix (min 4 chars).

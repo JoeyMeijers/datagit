@@ -113,7 +113,7 @@ func (r *Repo) CreateBranch(name string) error {
 	if err := os.MkdirAll(filepath.Dir(r.branchPath(name)), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(r.branchPath(name), []byte(head+"\n"), 0o644)
+	return writeFileAtomic(r.branchPath(name), []byte(head+"\n"))
 }
 
 // DeleteBranch removes a branch. The current branch cannot be deleted.
@@ -192,7 +192,7 @@ func (r *Repo) Merge(other string) (MergeResult, error) {
 			return MergeResult{}, fmt.Errorf("restoring %s: %w", f.Path, err)
 		}
 	}
-	if err := os.WriteFile(r.branchPath(current), []byte(c.ID+"\n"), 0o644); err != nil {
+	if err := writeFileAtomic(r.branchPath(current), []byte(c.ID+"\n")); err != nil {
 		return MergeResult{}, err
 	}
 	return MergeResult{Status: "fast-forward", CommitID: c.ID, Files: len(c.Files)}, nil
