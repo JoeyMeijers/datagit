@@ -68,6 +68,11 @@ func (r *Repo) saveRemotes(remotes map[string]string) error {
 
 // AddRemote registers a remote after validating its URL scheme.
 func (r *Repo) AddRemote(name, url string) error {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if !branchNameRe.MatchString(name) {
 		return fmt.Errorf("invalid remote name %q", name)
 	}
@@ -89,6 +94,11 @@ func (r *Repo) AddRemote(name, url string) error {
 
 // RemoveRemote unregisters a remote.
 func (r *Repo) RemoveRemote(name string) error {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	remotes, err := r.Remotes()
 	if err != nil {
 		return err
@@ -229,6 +239,11 @@ func (r *Repo) uploadChunks(b remote.Backend, c model.Commit, res *SyncResult) e
 // remote-tracking refs under refs/remotes/<name>/<branch>. Local
 // branches and the working tree are never touched.
 func (r *Repo) Fetch(remoteName string) ([]SyncResult, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	b, err := r.openRemote(remoteName)
 	if err != nil {
 		return nil, err

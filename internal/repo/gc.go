@@ -19,9 +19,15 @@ type GCResult struct {
 
 // GC deletes chunks referenced by no commit and no staged entry. With
 // dryRun it only reports what would be deleted. Referenced-set
-// collection reads every commit, so GC is safe to run at any time —
-// anything reachable is kept.
+// collection reads every commit, and GC holds the repository lock so a
+// concurrent add cannot have its freshly written, not-yet-staged
+// chunks swept.
 func (r *Repo) GC(dryRun bool) (GCResult, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return GCResult{}, err
+	}
+	defer unlock()
 	referenced, err := r.referencedHashes()
 	if err != nil {
 		return GCResult{}, err

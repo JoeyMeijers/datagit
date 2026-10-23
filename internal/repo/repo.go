@@ -154,6 +154,11 @@ func (r *Repo) relPath(path string) (string, error) {
 // Add stages a file: chunks it into the object store and records its
 // manifest plus detected format metadata in the staging area.
 func (r *Repo) Add(path string) (model.FileEntry, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return model.FileEntry{}, err
+	}
+	defer unlock()
 	rel, err := r.relPath(path)
 	if err != nil {
 		return model.FileEntry{}, err
@@ -219,6 +224,11 @@ func (r *Repo) Commit(message string) (model.Commit, error) {
 	if strings.TrimSpace(message) == "" {
 		return model.Commit{}, errors.New("commit message must not be empty")
 	}
+	unlock, err := r.lock()
+	if err != nil {
+		return model.Commit{}, err
+	}
+	defer unlock()
 	staged, err := r.idx.Staged()
 	if err != nil {
 		return model.Commit{}, err
@@ -540,6 +550,11 @@ func hashFile(path string) (string, error) {
 // the commit. Unless force is set, it refuses to discard work (see
 // updateWorktree); with force, staged changes are discarded too.
 func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return model.Commit{}, err
+	}
+	defer unlock()
 	c, err := r.LoadCommit(ref)
 	if err != nil {
 		return model.Commit{}, err

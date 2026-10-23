@@ -97,6 +97,11 @@ func (r *Repo) Branches() ([]Branch, error) {
 
 // CreateBranch creates a branch pointing at the current HEAD commit.
 func (r *Repo) CreateBranch(name string) error {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if !branchNameRe.MatchString(name) {
 		return fmt.Errorf("invalid branch name %q (allowed: letters, digits, . _ -)", name)
 	}
@@ -118,6 +123,11 @@ func (r *Repo) CreateBranch(name string) error {
 
 // DeleteBranch removes a branch. The current branch cannot be deleted.
 func (r *Repo) DeleteBranch(name string) error {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if !r.isBranch(name) {
 		return fmt.Errorf("branch %s does not exist", name)
 	}
@@ -135,6 +145,11 @@ func (r *Repo) DeleteBranch(name string) error {
 // histories are rejected: three-way dataset merge is future work
 // (ADR-0007).
 func (r *Repo) Merge(other string) (MergeResult, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return MergeResult{}, err
+	}
+	defer unlock()
 	current, err := r.CurrentBranch()
 	if err != nil {
 		return MergeResult{}, err
