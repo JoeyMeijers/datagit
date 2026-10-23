@@ -3,7 +3,7 @@
 # Common targets:
 #   make build      compile ./bin/dgit
 #   make test       run all tests
-#   make check      fmt + vet + test (what CI should run)
+#   make check      fmt + vet + test (CI also runs race, lint, vuln)
 #   make install    install into $(go env GOPATH)/bin
 #   make cover      test with coverage report
 #   make clean      remove build artifacts
@@ -15,6 +15,8 @@ MAIN    := ./cmd/dgit
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
+
+GOVULNCHECK_VERSION := v1.1.4
 
 # mattn/go-sqlite3 requires cgo (see ADR-0004).
 export CGO_ENABLED := 1
@@ -56,8 +58,16 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Run static analysis
 	go vet $(PKG)
 
+.PHONY: lint
+lint: ## Run golangci-lint (config: .golangci.yml)
+	golangci-lint run $(PKG)
+
+.PHONY: vuln
+vuln: ## Scan dependencies for known vulnerabilities
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) $(PKG)
+
 .PHONY: check
-check: fmt-check vet test ## fmt-check + vet + test (CI entry point)
+check: fmt-check vet test ## fmt-check + vet + test (CI also runs race, lint, vuln)
 
 .PHONY: tidy
 tidy: ## Sync go.mod / go.sum

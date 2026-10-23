@@ -13,10 +13,10 @@ func cmdCheck() *Command {
 	return &Command{
 		Name:    "check",
 		Summary: "Validate dataset files against quality rules",
-		Usage:   "dgit check <file>...",
+		Usage:   "dgit check <file> [<file>...]",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("usage: dgit check <file>...")
+				return fmt.Errorf("usage: dgit check <file> [<file>...]")
 			}
 			r, err := openRepo()
 			if err != nil {

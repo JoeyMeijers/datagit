@@ -13,7 +13,7 @@ make build          # compiles ./bin/dgit
 make install        # installs into $(go env GOPATH)/bin
 ```
 
-Requires Go 1.24+ and a C compiler (for the embedded SQLite index). Run `make help` for all targets; `make check` (fmt + vet + tests) is the CI entry point.
+Requires Go 1.24+ and a C compiler (for the embedded SQLite index). Run `make help` for all targets; `make check` (fmt + vet + tests) is the main CI entry point; CI also runs `make race`, `make lint` (golangci-lint), and `make vuln` (govulncheck).
 
 ## Usage
 

@@ -49,10 +49,10 @@ func cmdAdd() *Command {
 	return &Command{
 		Name:    "add",
 		Summary: "Stage dataset files for the next commit",
-		Usage:   "dgit add <file>...",
+		Usage:   "dgit add <file> [<file>...]",
 		Run: func(out io.Writer, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("usage: dgit add <file>...")
+				return fmt.Errorf("usage: dgit add <file> [<file>...]")
 			}
 			r, err := openRepo()
 			if err != nil {

@@ -1,0 +1,8 @@
+version: "2"
+
+linters:
+  exclusions:
+    # Unchecked Close/Remove/Fprint* in cleanup and output paths is
+    # idiomatic; write paths check Close explicitly where it matters.
+    presets:
+      - std-error-handling

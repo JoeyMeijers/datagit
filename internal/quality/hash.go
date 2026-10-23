@@ -10,9 +10,9 @@ func rowKey(rec []string, h fnv128) [16]byte {
 	h.Reset()
 	for i, v := range rec {
 		if i > 0 {
-			h.Write([]byte{0x1f})
+			h.Write([]byte{0x1f}) //nolint:errcheck // hash.Hash.Write never fails
 		}
-		h.Write([]byte(v))
+		h.Write([]byte(v)) //nolint:errcheck // hash.Hash.Write never fails
 	}
 	var key [16]byte
 	h.Sum(key[:0])
@@ -22,7 +22,7 @@ func rowKey(rec []string, h fnv128) [16]byte {
 // valueKey hashes a single value.
 func valueKey(v string, h fnv128) [16]byte {
 	h.Reset()
-	h.Write([]byte(v))
+	h.Write([]byte(v)) //nolint:errcheck // hash.Hash.Write never fails
 	var key [16]byte
 	h.Sum(key[:0])
 	return key
