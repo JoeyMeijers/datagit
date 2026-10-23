@@ -14,7 +14,7 @@ A remote is a dumb key/value store mirroring the local layout (`objects/`, `comm
 
 **Publish** uploads the branch's missing history: it walks parent links from the tip, stops at the first commit the remote already has (remotes invariantly hold ancestor-closed sets), uploads each missing commit's chunks (raw compressed bytes, no recompression) then the commit document, and finally moves the remote ref. The ref only moves fast-forward: a remote tip that is unknown locally or not our ancestor aborts with "fetch first" — publish can never destroy remote history.
 
-**Fetch** downloads every remote branch into remote-tracking refs (`refs/remotes/<name>/<branch>`), never touching local branches or the working tree. Every fetched chunk is integrity-verified by decompress-and-rehash before acceptance; fetched commit documents must hash-match their claimed ID. Remote-tracking refs resolve anywhere commit refs do (`dgit merge origin/main`, `dgit diff origin/main`).
+**Fetch** downloads every remote branch into remote-tracking refs (`refs/remotes/<name>/<branch>`), never touching local branches or the working tree. Remotes are untrusted input. Every fetched chunk is integrity-verified by decompress-and-rehash before acceptance. Every fetched commit document must hash to its claimed ID, may only reference clean relative file paths inside the working tree (no `..`, absolute paths, backslashes, or `.datagit/`), well-formed chunk hashes, and a well-formed parent; it is stored locally in canonical re-encoded form so unverified fields never land on disk. Remote branch names must match the local branch-name rules and remote refs must hold a well-formed commit ID before either is used to build a local path. Commit documents are capped at 64 MiB. `restoreFile` re-validates paths regardless of origin (defense in depth). Remote-tracking refs resolve anywhere commit refs do (`dgit merge origin/main`, `dgit diff origin/main`).
 
 ## Consequences
 
@@ -22,7 +22,7 @@ A remote is a dumb key/value store mirroring the local layout (`objects/`, `comm
 
 - No server: any S3 bucket or shared folder is a fully functional remote. Kubernetes jobs fetch → work → publish with only object-storage credentials.
 - Transfers are incremental at chunk granularity; unchanged data never travels.
-- Tampered remotes are detected at fetch time (hash verification on both commits and chunks).
+- Tampered remotes are detected at fetch time (hash verification on both commits and chunks), and a malicious remote cannot write outside the working tree.
 
 ### Negative
 

@@ -18,6 +18,10 @@ import (
 // remotesFile stores configured remotes under .datagit/config.
 const remotesFile = "remotes.json"
 
+// maxCommitBytes caps the size of a commit document read from a remote,
+// so a hostile remote cannot exhaust memory.
+const maxCommitBytes = 64 << 20
+
 type remotesConfig struct {
 	Remotes map[string]string `json:"remotes"` // name -> URL
 }
@@ -240,9 +244,15 @@ func (r *Repo) Fetch(remoteName string) ([]SyncResult, error) {
 	var out []SyncResult
 	for _, refKey := range refKeys {
 		branch := strings.TrimPrefix(refKey, "refs/heads/")
+		if !branchNameRe.MatchString(branch) {
+			return out, fmt.Errorf("remote has invalid branch name %q", branch)
+		}
 		tip, err := readRemoteRef(b, refKey)
 		if err != nil {
 			return out, err
+		}
+		if tip == "" {
+			continue // ref vanished between List and Get
 		}
 		res := SyncResult{Branch: branch, CommitID: tip}
 		if err := r.downloadHistory(b, tip, &res); err != nil {
@@ -274,22 +284,27 @@ func (r *Repo) downloadHistory(b remote.Backend, tip string, res *SyncResult) er
 		if err != nil {
 			return err
 		}
-		blob, err := io.ReadAll(src)
+		blob, err := io.ReadAll(io.LimitReader(src, maxCommitBytes+1))
 		src.Close()
 		if err != nil {
 			return err
+		}
+		if len(blob) > maxCommitBytes {
+			return fmt.Errorf("remote commit %s exceeds %d bytes", id[:12], maxCommitBytes)
 		}
 		var c model.Commit
 		if err := json.Unmarshal(blob, &c); err != nil {
 			return fmt.Errorf("decoding commit %s: %w", id[:12], err)
 		}
-		if c.ID != id {
-			return fmt.Errorf("remote commit %s has mismatched ID %s", id[:12], c.ID)
+		if err := validateCommit(c, id); err != nil {
+			return err
 		}
 		if err := r.downloadChunks(b, c, res); err != nil {
 			return err
 		}
-		if err := os.WriteFile(localPath, blob, 0o644); err != nil {
+		// Store the canonical re-encoding, not the remote's bytes, so only
+		// verified fields ever reach the local commit store.
+		if err := r.writeCommitFile(c); err != nil {
 			return err
 		}
 		if err := r.idx.PutCommit(c); err != nil {
@@ -342,5 +357,9 @@ func readRemoteRef(b remote.Backend, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(blob)), nil
+	id := strings.TrimSpace(string(blob))
+	if !isObjectID(id) {
+		return "", fmt.Errorf("remote ref %s holds an invalid commit ID", key)
+	}
+	return id, nil
 }

@@ -387,8 +387,10 @@ func (r *Repo) LoadCommit(ref string) (model.Commit, error) {
 // over ID prefixes.
 func (r *Repo) resolve(ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
-	if blob, err := os.ReadFile(r.branchPath(ref)); err == nil {
-		return strings.TrimSpace(string(blob)), nil
+	if branchNameRe.MatchString(ref) {
+		if blob, err := os.ReadFile(r.branchPath(ref)); err == nil {
+			return strings.TrimSpace(string(blob)), nil
+		}
 	}
 	// Remote-tracking refs: "<remote>/<branch>".
 	if name, branch, ok := strings.Cut(ref, "/"); ok {
@@ -399,7 +401,7 @@ func (r *Repo) resolve(ref string) (string, error) {
 			}
 		}
 	}
-	if len(ref) == 64 {
+	if isObjectID(ref) {
 		return ref, nil
 	}
 	if len(ref) < 4 {
@@ -543,6 +545,11 @@ func (r *Repo) Checkout(ref string, force bool) (model.Commit, error) {
 // restoreFile writes a file entry to a temp file and renames it into
 // place, so an interrupted checkout never leaves truncated files.
 func (r *Repo) restoreFile(f model.FileEntry) error {
+	// Defense in depth: fetch already validates paths, but never write
+	// outside the working tree regardless of how a commit got here.
+	if err := validateEntryPath(f.Path); err != nil {
+		return err
+	}
 	dst := filepath.Join(r.Root, filepath.FromSlash(f.Path))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
