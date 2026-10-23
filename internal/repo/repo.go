@@ -135,13 +135,20 @@ func (r *Repo) relPath(path string) (string, error) {
 		return "", err
 	}
 	rel, err := filepath.Rel(r.Root, abs)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if err != nil {
 		return "", fmt.Errorf("%s is outside the repository", path)
 	}
-	if strings.HasPrefix(rel, DirName) {
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", fmt.Errorf("%s is outside the repository", path)
+	}
+	if rel == DirName || strings.HasPrefix(rel, DirName+"/") {
 		return "", fmt.Errorf("cannot add files inside %s", DirName)
 	}
-	return filepath.ToSlash(rel), nil
+	if err := validateEntryPath(rel); err != nil {
+		return "", err
+	}
+	return rel, nil
 }
 
 // Add stages a file: chunks it into the object store and records its
@@ -156,6 +163,10 @@ func (r *Repo) Add(path string) (model.FileEntry, error) {
 		return model.FileEntry{}, fmt.Errorf("opening %s: %w", rel, err)
 	}
 	defer f.Close()
+	before, err := f.Stat()
+	if err != nil {
+		return model.FileEntry{}, err
+	}
 
 	manifest, sum, size, err := r.store.PutFile(f)
 	if err != nil {
@@ -174,6 +185,15 @@ func (r *Repo) Add(path string) (model.FileEntry, error) {
 		// block versioning the bytes. Record it as opaque binary.
 		info = format.Info{Format: "binary"}
 	}
+	// Content and metadata come from separate reads; refuse to record a
+	// mismatched pair if the file was rewritten in between.
+	after, err := os.Stat(filepath.Join(r.Root, filepath.FromSlash(rel)))
+	if err != nil {
+		return model.FileEntry{}, err
+	}
+	if changedDuringRead(before, after, size) {
+		return model.FileEntry{}, fmt.Errorf("%s changed while being added; retry once it is no longer being written", rel)
+	}
 	entry.Format = info.Format
 	entry.Rows = info.Rows
 	entry.Cols = info.Cols
@@ -183,6 +203,13 @@ func (r *Repo) Add(path string) (model.FileEntry, error) {
 		return model.FileEntry{}, err
 	}
 	return entry, nil
+}
+
+// changedDuringRead reports whether a file was modified between the
+// before and after stats, or yielded a different byte count than
+// before promised.
+func changedDuringRead(before, after os.FileInfo, read int64) bool {
+	return after.Size() != before.Size() || !after.ModTime().Equal(before.ModTime()) || read != before.Size()
 }
 
 // Commit snapshots the staging area merged over the parent commit's

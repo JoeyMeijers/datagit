@@ -57,6 +57,7 @@ Repositories start on a `main` branch. `checkout <branch>` switches branches; `c
     refs/        HEAD, heads/<branch>, remotes/<remote>/<branch>
     config/      config.json (author), remotes.json
     index.db     SQLite: staging area + queryable commit index
+    lock         advisory lock held by commands that modify the repository
 ```
 
 `add` streams a file in 4 MiB chunks: each chunk is SHA-256-hashed, zstd-compressed, and stored once — identical chunks across files and versions are deduplicated. Nothing is ever loaded fully into memory, so multi-GB files are fine.
@@ -65,7 +66,7 @@ Repositories start on a `main` branch. `checkout <branch>` switches branches; `c
 
 `commit` snapshots the staging area merged over the parent commit, writes an immutable JSON commit whose ID is the SHA-256 of its content, and advances HEAD.
 
-`checkout` restores files via temp-file-and-rename, so an interrupted checkout never leaves truncated files. `verify` re-hashes every stored chunk.
+`checkout` restores files via temp-file-and-rename, so an interrupted checkout never leaves truncated files; commits, refs, and config are written the same way. Commands that modify the repository take an exclusive lock and fail fast with a clear error if another `dgit` process holds it; read-only commands never wait (ADR-0009). `verify` re-hashes every stored chunk, checks that every commit document hashes to its ID, and reports chunks that commits reference but the store lacks.
 
 `diff` compares two commits — or, with no arguments, the working tree against HEAD (like `git diff HEAD`; untracked files are ignored). It reports added/removed files, schema changes (columns added/removed, type changes), and — for CSV/TSV — rows added/removed, computed as an order-insensitive streaming hash comparison directly from the object store. Re-sorting a file is therefore not a change. `--rows N` prints up to N of the actual added/removed rows per file. Parquet files get metadata-only diffs for now.
 
