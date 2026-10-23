@@ -1,7 +1,7 @@
 // Package storage implements datagit's content-addressable chunk store.
 //
-// Files are split into fixed-size chunks, each chunk is hashed with
-// SHA-256, compressed with zstandard, and written to
+// Files are split into content-defined chunks (see chunker.go), each
+// chunk is hashed with SHA-256, compressed with zstandard, and written to
 // .datagit/objects/<hh>/<rest-of-hash>. Identical chunks are stored once
 // (deduplication). All reads and writes stream; no file is ever fully
 // buffered in memory.
@@ -22,10 +22,6 @@ import (
 	"github.com/joeymeij/datagit/internal/model"
 )
 
-// DefaultChunkSize is the fixed chunk size (4 MiB). Content-defined
-// chunking may replace this later; see ADR-0002.
-const DefaultChunkSize = 4 << 20
-
 // ErrObjectNotFound is returned when a chunk is missing from the store.
 var ErrObjectNotFound = errors.New("object not found")
 
@@ -34,13 +30,12 @@ var ErrCorruptObject = errors.New("object corrupt: hash mismatch")
 
 // Store is a content-addressable chunk store rooted at a directory.
 type Store struct {
-	root      string // e.g. .datagit/objects
-	chunkSize int
+	root string // e.g. .datagit/objects
 }
 
 // NewStore opens (or prepares) a store rooted at dir.
 func NewStore(dir string) *Store {
-	return &Store{root: dir, chunkSize: DefaultChunkSize}
+	return &Store{root: dir}
 }
 
 // objectPath maps a hex hash to its on-disk location, sharded by the
@@ -69,26 +64,23 @@ func (s *Store) PutFile(r io.Reader) (model.Manifest, string, int64, error) {
 		manifest model.Manifest
 		total    int64
 		fileHash = sha256.New()
-		buf      = make([]byte, s.chunkSize)
+		chunks   = newChunker(r)
 	)
 	for {
-		n, err := io.ReadFull(r, buf)
-		if n > 0 {
-			chunk := buf[:n]
-			fileHash.Write(chunk)
-			hash, werr := s.putChunk(chunk)
-			if werr != nil {
-				return model.Manifest{}, "", 0, werr
-			}
-			manifest.Chunks = append(manifest.Chunks, model.Chunk{Hash: hash, Size: int64(n)})
-			total += int64(n)
-		}
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		chunk, err := chunks.next()
+		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return model.Manifest{}, "", 0, fmt.Errorf("reading input: %w", err)
+			return model.Manifest{}, "", 0, err
 		}
+		fileHash.Write(chunk)
+		hash, err := s.putChunk(chunk)
+		if err != nil {
+			return model.Manifest{}, "", 0, err
+		}
+		manifest.Chunks = append(manifest.Chunks, model.Chunk{Hash: hash, Size: int64(len(chunk))})
+		total += int64(len(chunk))
 	}
 	return manifest, hex.EncodeToString(fileHash.Sum(nil)), total, nil
 }

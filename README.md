@@ -60,7 +60,7 @@ Repositories start on a `main` branch. `checkout <branch>` switches branches; `c
     lock         advisory lock held by commands that modify the repository
 ```
 
-`add` streams a file in 4 MiB chunks: each chunk is SHA-256-hashed, zstd-compressed, and stored once — identical chunks across files and versions are deduplicated. Nothing is ever loaded fully into memory, so multi-GB files are fine.
+`add` streams a file into content-defined chunks (FastCDC, 512 KiB–8 MiB, about 2 MiB on average). Each chunk is SHA-256-hashed, zstd-compressed, and stored once, so identical chunks across files and versions are deduplicated. Chunk boundaries depend on content, not byte offsets, so an edit only rewrites the chunks around it. Inserting one row at the top of a 200 MB CSV stores about 150 KB of new data, not a second copy of the file (ADR-0011). Memory use is bounded (16 MiB buffer), so multi-GB files are fine.
 
 `add` also detects the dataset format. CSV/TSV files are streamed once to count rows and infer column types (integer, float, boolean, date, datetime, string). Parquet files are read footer-only — schema and row count come from the file metadata, so extraction cost is independent of file size.
 

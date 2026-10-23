@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The chunking strategy is superseded by ADR-0011 (content-defined chunking); the rest of the storage design stands.
 
 ## Context
 

@@ -56,16 +56,26 @@ func TestPutFileSingleChunk(t *testing.T) {
 }
 
 func TestPutFileMultiChunk(t *testing.T) {
-	// 9 MiB spans three 4 MiB chunks (4+4+1).
-	data := testData(t, 9<<20)
+	// 20 MiB spans several content-defined chunks.
+	data := testData(t, 20<<20)
 	s := roundTrip(t, data)
 
 	manifest, _, _, err := s.PutFile(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("second PutFile: %v", err)
 	}
-	if got := len(manifest.Chunks); got != 3 {
-		t.Fatalf("chunks = %d, want 3", got)
+	if got := len(manifest.Chunks); got < 2 {
+		t.Fatalf("chunks = %d, want several", got)
+	}
+	var total int64
+	for _, c := range manifest.Chunks {
+		if c.Size > maxChunk {
+			t.Fatalf("chunk of %d bytes exceeds maximum %d", c.Size, maxChunk)
+		}
+		total += c.Size
+	}
+	if total != int64(len(data)) {
+		t.Fatalf("manifest covers %d bytes, want %d", total, len(data))
 	}
 }
 
