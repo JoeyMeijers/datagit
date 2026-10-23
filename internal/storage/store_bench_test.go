@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"path/filepath"
 	"testing"
 )
@@ -35,3 +36,21 @@ func BenchmarkPutFileRandom64MiB(b *testing.B) {
 }
 
 func BenchmarkPutFileCSV64MiB(b *testing.B) { benchPutFile(b, csvData(64<<20)) }
+
+func benchRestoreFile(b *testing.B, data []byte) {
+	s := NewStore(filepath.Join(b.TempDir(), "objects"))
+	m, _, _, err := s.PutFile(bytes.NewReader(data))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(data)))
+	for b.Loop() {
+		if err := s.RestoreFile(m, io.Discard); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkRestoreFileRandom64MiB(b *testing.B) { benchRestoreFile(b, testData(b, 64<<20)) }
+
+func BenchmarkRestoreFileCSV64MiB(b *testing.B) { benchRestoreFile(b, csvData(64<<20)) }

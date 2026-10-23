@@ -16,10 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/klauspost/compress/zstd"
-
-	"github.com/joeymeij/datagit/internal/model"
 )
 
 // ErrObjectNotFound is returned when a chunk is missing from the store.
@@ -30,12 +26,13 @@ var ErrCorruptObject = errors.New("object corrupt: hash mismatch")
 
 // Store is a content-addressable chunk store rooted at a directory.
 type Store struct {
-	root string // e.g. .datagit/objects
+	root    string // e.g. .datagit/objects
+	workers int    // chunks hashed/compressed/decoded concurrently
 }
 
 // NewStore opens (or prepares) a store rooted at dir.
 func NewStore(dir string) *Store {
-	return &Store{root: dir}
+	return &Store{root: dir, workers: defaultWorkers()}
 }
 
 // objectPath maps a hex hash to its on-disk location, sharded by the
@@ -57,36 +54,9 @@ func (s *Store) Has(hash string) bool {
 	return err == nil
 }
 
-// PutFile streams r into the store, splitting it into chunks. It returns
-// the file manifest, the whole-file SHA-256 (hex), and total size.
-func (s *Store) PutFile(r io.Reader) (model.Manifest, string, int64, error) {
-	var (
-		manifest model.Manifest
-		total    int64
-		fileHash = sha256.New()
-		chunks   = newChunker(r)
-	)
-	for {
-		chunk, err := chunks.next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return model.Manifest{}, "", 0, err
-		}
-		fileHash.Write(chunk)
-		hash, err := s.putChunk(chunk)
-		if err != nil {
-			return model.Manifest{}, "", 0, err
-		}
-		manifest.Chunks = append(manifest.Chunks, model.Chunk{Hash: hash, Size: int64(len(chunk))})
-		total += int64(len(chunk))
-	}
-	return manifest, hex.EncodeToString(fileHash.Sum(nil)), total, nil
-}
-
-// putChunk writes one chunk if not already present and returns its hash.
-func (s *Store) putChunk(chunk []byte) (string, error) {
+// putChunk writes one chunk if not already present and returns its
+// hash. scratch is reused for the compressed bytes.
+func (s *Store) putChunk(chunk []byte, scratch *[]byte) (string, error) {
 	sum := sha256.Sum256(chunk)
 	hash := hex.EncodeToString(sum[:])
 	p, err := s.objectPath(hash)
@@ -106,19 +76,15 @@ func (s *Store) putChunk(chunk []byte) (string, error) {
 	}
 	defer os.Remove(tmp.Name())
 
-	enc, err := zstd.NewWriter(tmp)
+	compressed, err := compress(*scratch, chunk)
 	if err != nil {
 		tmp.Close()
-		return "", fmt.Errorf("initializing zstd: %w", err)
+		return "", err
 	}
-	if _, err := enc.Write(chunk); err != nil {
-		enc.Close()
+	*scratch = compressed
+	if _, err := tmp.Write(compressed); err != nil {
 		tmp.Close()
-		return "", fmt.Errorf("compressing chunk: %w", err)
-	}
-	if err := enc.Close(); err != nil {
-		tmp.Close()
-		return "", fmt.Errorf("finalizing zstd: %w", err)
+		return "", fmt.Errorf("writing object: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		return "", fmt.Errorf("closing temp object: %w", err)
@@ -129,46 +95,50 @@ func (s *Store) putChunk(chunk []byte) (string, error) {
 	return hash, nil
 }
 
-// ReadChunk streams the decompressed chunk identified by hash into w,
-// verifying its content hash on the way through.
+// ReadChunk writes the decompressed chunk identified by hash to w. The
+// content hash is verified before anything is written, so corrupt data
+// never reaches w.
 func (s *Store) ReadChunk(hash string, w io.Writer) error {
-	p, err := s.objectPath(hash)
+	var scratch []byte
+	data, err := s.loadChunk(hash, nil, &scratch)
 	if err != nil {
 		return err
 	}
-	f, err := os.Open(p)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%w: %s", ErrObjectNotFound, hash)
-		}
-		return fmt.Errorf("opening object: %w", err)
-	}
-	defer f.Close()
-
-	dec, err := zstd.NewReader(f)
-	if err != nil {
-		return fmt.Errorf("initializing zstd reader: %w", err)
-	}
-	defer dec.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(w, h), dec.IOReadCloser()); err != nil {
-		return fmt.Errorf("decompressing object %s: %w", hash, err)
-	}
-	if hex.EncodeToString(h.Sum(nil)) != hash {
-		return fmt.Errorf("%w: %s", ErrCorruptObject, hash)
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("writing chunk %s: %w", hash, err)
 	}
 	return nil
 }
 
-// RestoreFile streams every chunk of manifest, in order, into w.
-func (s *Store) RestoreFile(manifest model.Manifest, w io.Writer) error {
-	for _, c := range manifest.Chunks {
-		if err := s.ReadChunk(c.Hash, w); err != nil {
-			return err
-		}
+// loadChunk appends the verified, decompressed chunk to dst[:0]. scratch
+// is reused for the compressed bytes.
+func (s *Store) loadChunk(hash string, dst []byte, scratch *[]byte) ([]byte, error) {
+	p, err := s.objectPath(hash)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	f, err := os.Open(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, hash)
+		}
+		return nil, fmt.Errorf("opening object: %w", err)
+	}
+	compressed, err := readObject(*scratch, f)
+	f.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading object %s: %w", hash, err)
+	}
+	*scratch = compressed
+	data, err := decompress(dst, compressed)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %v", ErrCorruptObject, hash, err)
+	}
+	sum := sha256.Sum256(data)
+	if hex.EncodeToString(sum[:]) != hash {
+		return nil, fmt.Errorf("%w: %s", ErrCorruptObject, hash)
+	}
+	return data, nil
 }
 
 // Objects returns the hash of every object currently in the store.
@@ -259,27 +229,4 @@ func (s *Store) PutRaw(hash string, r io.Reader) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), p)
-}
-
-// VerifyAll re-hashes every object in the store and returns the hashes of
-// corrupt or unreadable objects. A nil error with an empty slice means the
-// store is healthy.
-func (s *Store) VerifyAll() (bad []string, err error) {
-	err = filepath.WalkDir(s.root, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() || strings.HasPrefix(d.Name(), ".tmp-") {
-			return nil
-		}
-		hash := filepath.Base(filepath.Dir(path)) + d.Name()
-		if verr := s.ReadChunk(hash, io.Discard); verr != nil {
-			bad = append(bad, hash)
-		}
-		return nil
-	})
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	return bad, err
 }
