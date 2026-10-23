@@ -10,7 +10,7 @@ import (
 )
 
 // testData returns size bytes of deterministic pseudo-random data.
-func testData(t *testing.T, size int) []byte {
+func testData(t testing.TB, size int) []byte {
 	t.Helper()
 	buf := make([]byte, size)
 	rand.New(rand.NewSource(42)).Read(buf)
